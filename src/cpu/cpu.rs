@@ -19,11 +19,23 @@ impl MemoryBus {
 
 pub enum Instructions {
     ADD(TargetResgister),
+    JP(JumpTest),
+    JR(),
+    JPI(),
 }
 
 impl Instructions {
+    pub fn from_bytes(byte: u8, prefixed: bool) -> Option<Instructions>{
+        if prefixed {
+            Instructions::from_bytes_prefixed(byte)
+        } else  {
+            Instructions::from_bytes_not_prefixed(byte)
+        }
+
+    }
+
     //Fonction pour retrouver l'instruction à faire en fonction du byte passé
-    pub fn from_bytes(byte: u8) -> Option<Instructions> {
+    pub fn from_bytes_not_prefixed(byte: u8) -> Option<Instructions> {
         match byte {
 
             //ADD bytes
@@ -37,9 +49,25 @@ impl Instructions {
             _ => None,
         }
     }
+
+    //Fonction pour retourver l'instruction avec prefixe
+    pub fn from_bytes_prefixed(byte: u8) -> Option<Instructions>{
+        match byte {
+            _ => None,
+        }
+    }
 }
+
 pub enum TargetResgister{
     A,B,C,D,E,H,L,
+}
+
+pub enum JumpTest {
+    NotZero,
+    Zero,
+    NotCarry,
+    Carry,
+    Always
 }
 
 impl CPU {
@@ -85,17 +113,33 @@ impl CPU {
 
                 }
             }
-
-
+            Instructions::JP(jump) => {
+                let jump_condition = match jump {
+                    JumpTest::Always => true,
+                    JumpTest::Carry => self.resgiters.f.carry,
+                    JumpTest::NotCarry => !self.resgiters.f.carry,
+                    JumpTest::Zero => self.resgiters.f.zero,
+                    JumpTest::NotZero => !self.resgiters.f.zero
+                };
+                self.jump(jump_condition)
+            }
+            _=> self.pc,
         }
     }
 
     pub fn step(&mut self){
         //On récupère l'instruction à faire depuis le bus.
-        let instruction_byte = self.bus.read_byte(self.pc);
+        let mut instruction_byte = self.bus.read_byte(self.pc);
+        //On vérifie si l'instruction est un préfixe.
+        let prefixed = instruction_byte== 0xCB;
+
+        //S'il y a un préfix, l'instruction passe à celle suivante dans le bus
+        if prefixed {
+            instruction_byte = self.bus.read_byte(self.pc + 1);
+        }
 
         //On vérifie que l'insturction existe.
-        let next_pc = if let Some(instruction) = Instructions::from_bytes(instruction_byte) {
+        let next_pc = if let Some(instruction) = Instructions::from_bytes(instruction_byte, prefixed) {
             self.execute(instruction)
         } else {
             panic!("Pas d'instuction trouvée depuis l'adresse 0x{:x}", instruction_byte);
@@ -123,6 +167,16 @@ impl CPU {
         self.resgiters.f.half_carry = half_carry>15 ;
         new 
 
+    }
+
+    pub fn jump(&self, condition: bool)-> u16{
+        if condition {
+            let lower = self.bus.read_byte(self.pc + 1);
+            let higher = self.bus.read_byte(self.pc +2);
+            lower as u16 | (higher as u16)<<8
+        } else {
+            self.pc.wrapping_add(3)
+        }
     }
 
 }
