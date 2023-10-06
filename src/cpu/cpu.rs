@@ -15,6 +15,21 @@ impl MemoryBus {
     pub fn read_byte(&self, address: u16) -> u8 {
       self.memory[address as usize]
     }
+
+    pub fn write_byte(&mut self, address: u16, source: u8){
+        self.memory[address as usize] = source;
+
+    }
+}
+
+pub enum LoadByteTarget {
+    A, B, C, D, E, H, L, HLI
+}
+pub enum LoadByteSource {
+    A, B, C, D, E, H, L, D8, HLI
+}
+pub enum LoadType {
+  Byte(LoadByteTarget, LoadByteSource),
 }
 
 pub enum Instructions {
@@ -22,6 +37,7 @@ pub enum Instructions {
     JP(JumpTest),
     JR(),
     JPI(),
+    LD(LoadType),
 }
 
 impl Instructions {
@@ -123,6 +139,29 @@ impl CPU {
                 };
                 self.jump(jump_condition)
             }
+            Instructions::LD(load_type) => {
+                match load_type {
+                    LoadType::Byte(target,source)=>{
+                        let source_value = match source {
+                            LoadByteSource::A => self.resgiters.a,
+                            LoadByteSource::D8 => self.read_next_byte(),
+                            LoadByteSource::HLI => self.bus.read_byte(self.resgiters.get_hl()),
+                            _=> panic!("TODO: LoadByteSource"),
+                        };
+
+                        let target_value = match target {
+                            LoadByteTarget::A => self.resgiters.a = source_value,
+                            LoadByteTarget::HLI => self.bus.write_byte(self.resgiters.get_hl(), source_value),
+                            _ => { panic!("TODO: implement other targets") }
+                        };
+
+                        match source {
+                            LoadByteSource::D8 => self.pc.wrapping_add(2),
+                            _=> self.pc.wrapping_add(1),
+                        }
+                    }
+                }
+            }
             _=> self.pc,
         }
     }
@@ -177,6 +216,11 @@ impl CPU {
         } else {
             self.pc.wrapping_add(3)
         }
+    }
+
+    pub fn read_next_byte(&self) -> u8 {
+        self.bus.read_byte(self.pc + 1)
+
     }
 
 }
