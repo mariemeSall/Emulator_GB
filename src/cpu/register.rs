@@ -10,11 +10,11 @@ pub const F_CARRY_BYTE_POSITION : u8 = 4;
 
 
 pub struct Resgisters {
-    a: u8,
-    b: u8,
-    c: u8,
-    d: u8,
-    e: u8,
+    pub a: u8,
+    pub b: u8,
+    pub c: u8,
+    pub d: u8,
+    pub e: u8,
     //Le register f est utilisé pour les flags.
     /*
     Les 4 derniers bits sont toujours à zéro.
@@ -24,9 +24,9 @@ pub struct Resgisters {
     Bit 5 : "half carry"
     Bit 4 : "carry"
      */
-    f: u8,
-    h: u8,
-    l: u8,
+    pub f: FlagsRegister,
+    pub h: u8,
+    pub l: u8,
 }
 
 impl Resgisters {
@@ -35,7 +35,7 @@ impl Resgisters {
         //Comme ils sont sur les 8 derniers bits, on les décale sur les 8 premiers.
         //On ajoute les bits du register f à la fin du u16.
         (self.a as u16) << 8
-        | self.f as u16
+        | u8::from(self.f) as u16
 
     }
 
@@ -46,7 +46,7 @@ impl Resgisters {
         self.a = ((value & 0xFF00) >> 8) as u8;
 
         //On récupère les 8 derniers bits de value et on les stocke dans f
-        self.f = (value & 0xFF) as u8;
+        self.f = FlagsRegister::from((value & 0xFF) as u8);
 
     }
 
@@ -85,11 +85,12 @@ impl Resgisters {
 }
 
 //Structure pour le register f
+#[derive(Copy, Clone)]
 pub struct FlagsRegister {
-    zero: bool,
-    subtract: bool,
-    half_carry: bool,
-    carry: bool
+    pub zero: bool,
+    pub subtract: bool,
+    pub half_carry: bool,
+    pub carry: bool
 }
 
 impl std::convert::From<FlagsRegister> for u8 {
