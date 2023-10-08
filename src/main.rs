@@ -1,3 +1,5 @@
+use crate::gpu::screen::screenTest;
+
 pub mod cpu;
 pub mod gpu;
 //use crate::cpu::register::Resgisters;
@@ -5,4 +7,6 @@ pub mod gpu;
 fn main() {
 
     println!("Hello, world!");
+
+    screenTest();
 }
