@@ -46,7 +46,7 @@ impl Emulator {
     // Gérer la mise à jour de l'écran ici.
 }
 
-pub fn screenTest() {
+pub fn _screenTest() {
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
     let window = video_subsystem
