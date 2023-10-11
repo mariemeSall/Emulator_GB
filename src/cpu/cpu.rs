@@ -73,9 +73,17 @@ pub enum JumpTest {
     Always
 }
 
+pub enum Condition {
+    Yes(JumpTest),
+    No(JumpValue),
+}
+
+pub enum JumpValue {
+    A16, Hl
+}
+
 pub enum Instructions {
     ADD(TargetType),
-    JP(JumpTest),
     LD(LoadType),
     PUSH(StackTarget),
     POP(StackTarget),
@@ -112,6 +120,7 @@ pub enum Instructions {
     BIT(u8, Target8),
     SET(u8, Target8),
     RES(u8, Target8),
+    JP(Condition),
 
     //TODO
     JR(),
@@ -325,8 +334,14 @@ impl Instructions {
             0xBD => Some(Instructions::CP(Target8::L)),
             0xBE => Some(Instructions::CP(Target8::HL)),
             0xBF => Some(Instructions::CP(Target8::A)),
+            0xC2 => Some(Instructions::JP(Condition::Yes(JumpTest::NotZero))),
+            0xC3 => Some(Instructions::JP(Condition::No(JumpValue::A16))),
+            0xCA => Some(Instructions::JP(Condition::Yes(JumpTest::Zero))), 
+            0xD2 => Some(Instructions::JP(Condition::Yes(JumpTest::NotCarry))),
+            0xDA => Some(Instructions::JP(Condition::Yes(JumpTest::Carry))),
             0xE0 => Some(Instructions::LD(LoadType::A(LoadATarget::A8, LoadASource::A))), 
             0xE2 => Some(Instructions::LD(LoadType::A(LoadATarget::C, LoadASource::A))), 
+            0xE9 => Some(Instructions::JP(Condition::No(JumpValue::Hl))),
             0xEA => Some(Instructions::LD(LoadType::A(LoadATarget::A16, LoadASource::A))), 
             0xF0 => Some(Instructions::LD(LoadType::A(LoadATarget::A, LoadASource::A8))), 
             0xF2 => Some(Instructions::LD(LoadType::A(LoadATarget::A, LoadASource::C))), 
@@ -1062,15 +1077,29 @@ impl CPU {
                     self.cpl();
                     self.pc.wrapping_add(1)
                 }
-                Instructions::JP(jump) => {
-                    let jump_condition = match jump {
-                        JumpTest::Always => true,
-                        JumpTest::Carry => self.resgiters.f.carry,
-                        JumpTest::NotCarry => !self.resgiters.f.carry,
-                        JumpTest::Zero => self.resgiters.f.zero,
-                        JumpTest::NotZero => !self.resgiters.f.zero
-                    };
-                    self.jump(jump_condition)
+                Instructions::JP(condition) => {
+                    match condition {
+                        Condition::Yes(jump)=> {
+                            let jump_condition = match jump {
+                                JumpTest::Always => true,
+                                JumpTest::Carry => self.resgiters.f.carry,
+                                JumpTest::NotCarry => !self.resgiters.f.carry,
+                                JumpTest::Zero => self.resgiters.f.zero,
+                                JumpTest::NotZero => !self.resgiters.f.zero
+                            };
+                            self.jump(jump_condition)
+
+                        },
+                        Condition::No(a16) => {
+                            match a16 {
+                                JumpValue::A16 => self.jump(true) ,
+                                JumpValue::Hl => self.resgiters.get_hl(),
+                            }
+                        },
+
+                    }
+
+                    
                 }
                 Instructions::LD(load_type) => {
                     match load_type {
