@@ -59,7 +59,7 @@ pub enum Target8{
     A,B,C,D,E,H,L,HL, D8
 }
 pub enum Target16{
-    BC, DE, HL, SP
+    BC, DE, HL, SP, R8
 }
 pub enum TargetType {
     A(Target8), HL(Target16)
@@ -70,7 +70,6 @@ pub enum JumpTest {
     Zero,
     NotCarry,
     Carry,
-    Always
 }
 
 pub enum Condition {
@@ -82,13 +81,19 @@ pub enum JumpValue {
     A16, Hl
 }
 
+pub enum JumpCond {
+    Jump(JumpTest),
+    True,
+}
+
 pub enum Instructions {
     ADD(TargetType),
     LD(LoadType),
     PUSH(StackTarget),
     POP(StackTarget),
-    CALL(JumpTest),
-    RET(JumpTest),
+    CALL(JumpCond),
+    RET(JumpCond),
+    RETI(),
     NOP(),
     HALT(),
     SUB(Target8),
@@ -106,6 +111,7 @@ pub enum Instructions {
     RLCA(),
     RLA(), 
     DI(),
+    EI(),
     RRA(), 
     RRCA(),
     DAA(),
@@ -121,9 +127,9 @@ pub enum Instructions {
     SET(u8, Target8),
     RES(u8, Target8),
     JP(Condition),
+    JR(JumpCond),
 
     //TODO
-    JR(),
     JPI(),
     STOP(),
     
@@ -166,7 +172,7 @@ impl Instructions {
             0x15 => Some(Instructions::DEC(TargetType::A(Target8::D))),
             0x16 => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::D, LoadByteSource::D8))),
             0x17 => Some(Instructions::RLA()),
-            0x18 => Some(Instructions::JR()),
+            0x18 => Some(Instructions::JR(JumpCond::True)),
             0x19 => Some(Instructions::ADD(TargetType::HL(Target16::DE))),
             0x1A => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::A, LoadByteSource::DE))),
             0x1B => Some(Instructions::DEC(TargetType::HL(Target16::DE))),
@@ -174,7 +180,7 @@ impl Instructions {
             0x1D => Some(Instructions::DEC(TargetType::A(Target8::E))),
             0x1E => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::E, LoadByteSource::D8))),
             0x1F => Some(Instructions::RRA()),
-            0x20 => Some(Instructions::JR()),
+            0x20 => Some(Instructions::JR(JumpCond::Jump(JumpTest::NotZero))),
             0x21 => Some(Instructions::LD(LoadType::Word(LoadWordTarget::HL, LoadWordSource::D16))),
             0x22 => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::HLI, LoadByteSource::A))),
             0x23 => Some(Instructions::INC(TargetType::HL(Target16::HL))),
@@ -182,7 +188,7 @@ impl Instructions {
             0x25 => Some(Instructions::DEC(TargetType::A(Target8::H))),
             0x26 => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::H, LoadByteSource::D8))),
             0x27 => Some(Instructions::DAA()),
-            0x28 => Some(Instructions::JR()),
+            0x28 => Some(Instructions::JR(JumpCond::Jump(JumpTest::Zero))),
             0x29 => Some(Instructions::ADD(TargetType::HL(Target16::HL))),
             0x2A => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::A, LoadByteSource::HLI))),
             0x2B => Some(Instructions::DEC(TargetType::HL(Target16::HL))),
@@ -190,7 +196,7 @@ impl Instructions {
             0x2D => Some(Instructions::DEC(TargetType::A(Target8::L))),
             0x2E => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::L, LoadByteSource::D8))),
             0x2F => Some(Instructions::CPL()),
-            0x30 => Some(Instructions::JR()),
+            0x30 => Some(Instructions::JR(JumpCond::Jump(JumpTest::NotCarry))),
             0x31 => Some(Instructions::LD(LoadType::Word(LoadWordTarget::SP, LoadWordSource::D16))),
             0x32 => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::HLD, LoadByteSource::A))),
             0x33 => Some(Instructions::INC(TargetType::HL(Target16::SP))),
@@ -198,7 +204,7 @@ impl Instructions {
             0x35 => Some(Instructions::DEC(TargetType::A(Target8::HL))),
             0x36 => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::HL, LoadByteSource::D8))),
             0x37 => Some(Instructions::SCF()),
-            0x38 => Some(Instructions::JR()),
+            0x38 => Some(Instructions::JR(JumpCond::Jump(JumpTest::Carry))),
             0x39 => Some(Instructions::ADD(TargetType::HL(Target16::SP))),
             0x3A => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::A, LoadByteSource::HLD))),
             0x3B => Some(Instructions::DEC(TargetType::HL(Target16::SP))),
@@ -334,20 +340,50 @@ impl Instructions {
             0xBD => Some(Instructions::CP(Target8::L)),
             0xBE => Some(Instructions::CP(Target8::HL)),
             0xBF => Some(Instructions::CP(Target8::A)),
+            0xC0 => Some(Instructions::RET(JumpCond::Jump(JumpTest::NotZero))),
+            0xC1 => Some(Instructions::POP(StackTarget::BC)),
             0xC2 => Some(Instructions::JP(Condition::Yes(JumpTest::NotZero))),
             0xC3 => Some(Instructions::JP(Condition::No(JumpValue::A16))),
+            0xC4 => Some(Instructions::CALL(JumpCond::Jump(JumpTest::NotZero))),
+            0xC5 => Some(Instructions::PUSH(StackTarget::BC)),
+            0xC6 => Some(Instructions::ADD(TargetType::A(Target8::D8))),
+            0xC8 => Some(Instructions::RET(JumpCond::Jump(JumpTest::Zero))),
+            0xC9 => Some(Instructions::RET(JumpCond::True)),
             0xCA => Some(Instructions::JP(Condition::Yes(JumpTest::Zero))), 
+            0xCC => Some(Instructions::CALL(JumpCond::Jump(JumpTest::Zero))),
+            0xCD => Some(Instructions::CALL(JumpCond::True)),
+            0xCE => Some(Instructions::ADC(Target8::D8)),
+            0xD0 => Some(Instructions::RET(JumpCond::Jump(JumpTest::NotCarry))),
+            0xD1 => Some(Instructions::POP(StackTarget::DE)),
             0xD2 => Some(Instructions::JP(Condition::Yes(JumpTest::NotCarry))),
+            0xD4 => Some(Instructions::CALL(JumpCond::Jump(JumpTest::NotCarry))),
+            0xD5 => Some(Instructions::PUSH(StackTarget::DE)),
+            0xD6 => Some(Instructions::SUB(Target8::D8)),
+            0xD8 => Some(Instructions::RET(JumpCond::Jump(JumpTest::Carry))),
+            0xD9 => Some(Instructions::RETI()),
             0xDA => Some(Instructions::JP(Condition::Yes(JumpTest::Carry))),
+            0xDC => Some(Instructions::CALL(JumpCond::Jump(JumpTest::Carry))),
+            0xDE => Some(Instructions::SBC(Target8::D8)),
             0xE0 => Some(Instructions::LD(LoadType::A(LoadATarget::A8, LoadASource::A))), 
+            0xE1 => Some(Instructions::POP(StackTarget::HL)),
             0xE2 => Some(Instructions::LD(LoadType::A(LoadATarget::C, LoadASource::A))), 
+            0xE5 => Some(Instructions::PUSH(StackTarget::HL)),
+            0xE6 => Some(Instructions::AND(Target8::D8)),
+            0xE8 => Some(Instructions::ADD(TargetType::HL(Target16::R8))),
             0xE9 => Some(Instructions::JP(Condition::No(JumpValue::Hl))),
             0xEA => Some(Instructions::LD(LoadType::A(LoadATarget::A16, LoadASource::A))), 
+            0xEE => Some(Instructions::XOR(Target8::D8)),
             0xF0 => Some(Instructions::LD(LoadType::A(LoadATarget::A, LoadASource::A8))), 
+            0xF1 => Some(Instructions::POP(StackTarget::AF)),
             0xF2 => Some(Instructions::LD(LoadType::A(LoadATarget::A, LoadASource::C))), 
             0xF3 => Some(Instructions::DI()),
+            0xF5 => Some(Instructions::PUSH(StackTarget::AF)),
+            0xF6 => Some(Instructions::OR(Target8::D8)),
+            0xF8 => Some(Instructions::LD(LoadType::Word(LoadWordTarget::HL, LoadWordSource::SP8))),
             0xF9 => Some(Instructions::LD(LoadType::Word(LoadWordTarget::SP, LoadWordSource::HL))),
             0xFA => Some(Instructions::LD(LoadType::A(LoadATarget::A, LoadASource::A16))), 
+            0xFB => Some(Instructions::EI()),
+            0xFE => Some(Instructions::CP(Target8::D8)),
             _ => None,
         }
     }
@@ -672,23 +708,41 @@ impl CPU {
                             }
                         },
                         TargetType::HL(target) => {
-                            let value = match target {
+                            match target {
                                 Target16::BC => {
-                                    self.resgiters.get_bc()
-
+                                    let value = self.resgiters.get_bc();
+                                    self.add_hl(value);
+                                    self.pc.wrapping_add(1)
                                 },
                                 Target16::DE => {
-                                    self.resgiters.get_de()
+                                    let value = self.resgiters.get_de();
+                                    self.add_hl(value);
+                                    self.pc.wrapping_add(1)
                                 },
                                 Target16::HL => {
-                                    self.resgiters.get_hl()
+                                    let value = self.resgiters.get_hl();
+                                    self.add_hl(value);
+                                    self.pc.wrapping_add(1)
                                 },
                                 Target16::SP => {
-                                    self.sp
+                                    let value = self.sp;
+                                    self.add_hl(value);
+                                    self.pc.wrapping_add(1)
                                 },
-                            };
-                            self.add_hl(value);
-                            self.pc.wrapping_add(1)
+                                Target16::R8=> {
+                                    let n = self.bus.read_byte(self.pc + 1 ) as i8;
+                                    let (new, overflow) = self.resgiters.get_hl().overflowing_add_signed(n as i16);
+                                    self.resgiters.f.zero = new==0;
+                                    self.resgiters.f.carry = overflow;
+                                    let (_, overflow8) = ((self.resgiters.get_hl() & 0xFF) as u8).overflowing_add_signed(n);
+                                    self.resgiters.f.half_carry= overflow8;
+                            
+                                    self.resgiters.set_hl(new);
+
+                                    self.pc.wrapping_add(2)
+                                },
+                            }
+                          
 
                         }
                     }
@@ -933,6 +987,7 @@ impl CPU {
                                 Target16::DE => self.resgiters.set_de(self.resgiters.get_de() + 1),
                                 Target16::HL => self.resgiters.set_hl(self.resgiters.get_hl() + 1),
                                 Target16::SP => self.sp +=1,
+                                _=> panic!("INC target 16")
                             }
                         },                        
                     };
@@ -1009,6 +1064,7 @@ impl CPU {
                                 Target16::DE => self.resgiters.set_de(self.resgiters.get_de() - 1),
                                 Target16::HL => self.resgiters.set_hl(self.resgiters.get_hl() - 1),
                                 Target16::SP => self.sp -=1,
+                                _ => panic!("DEC target 16")
                             }
                         },                        
                     };
@@ -1081,7 +1137,6 @@ impl CPU {
                     match condition {
                         Condition::Yes(jump)=> {
                             let jump_condition = match jump {
-                                JumpTest::Always => true,
                                 JumpTest::Carry => self.resgiters.f.carry,
                                 JumpTest::NotCarry => !self.resgiters.f.carry,
                                 JumpTest::Zero => self.resgiters.f.zero,
@@ -1100,7 +1155,24 @@ impl CPU {
                     }
 
                     
-                }
+                },
+                Instructions::JR(jmp)=> {
+                    match jmp {
+                        JumpCond::True => {
+                            self.jr(true)
+                        },
+                        JumpCond::Jump(jump) => {
+                            let jump_condition = match jump {
+                                JumpTest::Carry => self.resgiters.f.carry,
+                                JumpTest::NotCarry => !self.resgiters.f.carry,
+                                JumpTest::Zero => self.resgiters.f.zero,
+                                JumpTest::NotZero => !self.resgiters.f.zero
+                            };
+                            self.jr(jump_condition)
+                        },
+                    }
+
+                },
                 Instructions::LD(load_type) => {
                     match load_type {
                         LoadType::Byte(target,source)=>{
@@ -1146,7 +1218,8 @@ impl CPU {
                                 LoadWordSource::D16 => (self.bus.read_byte(self.pc + 1) as u16) & ((self.bus.read_byte(self.pc + 2) as u16 )<< 8),
                                 LoadWordSource::HL => self.resgiters.get_hl(),
                                 LoadWordSource::SP8 => {
-                                    let (new, overflow) = self.sp.overflowing_add(self.bus.read_byte(self.pc + 1) as u16);
+                                    let r = self.bus.read_byte(self.pc + 1) as i8;
+                                    let (new, overflow) = self.sp.overflowing_add_signed(r as i16);
                                     self.resgiters.f.zero = false;
                                     self.resgiters.f.subtract = false;
                                     self.resgiters.f.carry = overflow;
@@ -1227,29 +1300,44 @@ impl CPU {
                     };
                     self.pc.wrapping_add(1)
                 },
-                Instructions::CALL(jump)=>{
-                    let jump_condition = match jump {
-                        JumpTest::Always => true,
-                        JumpTest::Carry => self.resgiters.f.carry,
-                        JumpTest::NotCarry => !self.resgiters.f.carry,
-                        JumpTest::Zero => self.resgiters.f.zero,
-                        JumpTest::NotZero => !self.resgiters.f.zero
-                    };
-                    self.call(jump_condition)
+                Instructions::CALL(jmp)=>{
+                    match jmp {
+                        JumpCond::True => self.call(true),
+                        JumpCond::Jump(jump)=> {
+                            let jump_condition = match jump {
+                                JumpTest::Carry => self.resgiters.f.carry,
+                                JumpTest::NotCarry => !self.resgiters.f.carry,
+                                JumpTest::Zero => self.resgiters.f.zero,
+                                JumpTest::NotZero => !self.resgiters.f.zero
+                            };
+                            self.call(jump_condition)
+                        }
+                    }
+                    
                 },
-                Instructions::RET(jump)=>{
-                    let jump_condition = match jump {
-                        JumpTest::Always => true,
-                        JumpTest::Carry => self.resgiters.f.carry,
-                        JumpTest::NotCarry => !self.resgiters.f.carry,
-                        JumpTest::Zero => self.resgiters.f.zero,
-                        JumpTest::NotZero => !self.resgiters.f.zero
-                    };
-                    self.ret(jump_condition)
+                Instructions::RET(jmp)=>{
+                    match jmp {
+                        JumpCond::True => self.ret(true),
+                        JumpCond::Jump(jump) => {
+                            let jump_condition = match jump {
+                                JumpTest::Carry => self.resgiters.f.carry,
+                                JumpTest::NotCarry => !self.resgiters.f.carry,
+                                JumpTest::Zero => self.resgiters.f.zero,
+                                JumpTest::NotZero => !self.resgiters.f.zero
+                            };
+                            self.ret(jump_condition)
+                        }
+                    }
+                    
+                },
+                Instructions::RETI() => {
+                    self.ime = true;
+                    self.ret(true)
                 },
                 Instructions::NOP()=> self.pc.wrapping_add(1),
                 Instructions::HALT() => {self.is_halted = true; self.pc.wrapping_add(1)},
                 Instructions::DI() => {self.ime =false; self.pc.wrapping_add(1)},
+                Instructions::EI() => {self.ime =true; self.pc.wrapping_add(1)},
                 Instructions::RLCA() => {
                     let n = self.resgiters.a & 0x80;
                     self.resgiters.a = (self.resgiters.a <<1) | n;
@@ -1952,10 +2040,6 @@ impl CPU {
         self.resgiters.f.half_carry= overflow8;
 
         self.resgiters.set_hl(new);
-
-
-
-
         
     }
 
@@ -2057,6 +2141,16 @@ impl CPU {
         }
     }
 
+    pub fn jr(&self, condition: bool) ->u16{
+        if condition {
+            let n = self.bus.read_byte(self.pc + 1) as i8;
+
+            self.pc.wrapping_add_signed(n as i16)
+        } else {
+            self.pc.wrapping_add(2)
+        }
+    }
+
     pub fn read_next_byte(&self) -> u8 {
         self.bus.read_byte(self.pc + 1)
 
@@ -2080,12 +2174,14 @@ impl CPU {
     }
 
     pub fn call(&mut self, jump: bool) -> u16{
-        let next_program = self.pc.wrapping_add(3);
+        let lower = self.bus.read_byte(self.pc + 2);
+        let higher = self.bus.read_byte(self.pc + 3);
+        let next_program = (lower as u16) & ((higher as u16)<<8);
         if jump {
-        self.push(next_program);
-        self.jump(jump)
-        } else {
+            self.push(self.pc + 1);
             next_program
+        } else {
+            self.pc.wrapping_add(3)
         }
 
     }
