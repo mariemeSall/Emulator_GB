@@ -1,6 +1,6 @@
 extern crate sdl2;
 use crate::cpu::cpu::{CPU, MemoryBus};
-use super::gpu::{GPU, PixelColorVal, PixelColorVal::Zero};
+use super::gpu::{GPU, PixelColorVal, PixelColorVal::Zero, PixelColorVal::One, PixelColorVal::Two, PixelColorVal::Three};
 
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
@@ -80,7 +80,9 @@ pub fn _screenTest() {
                 let pixel_color = screen_data[y][x];
                 let color = match pixel_color {
                     Zero => Color::BLACK,
-                    _ => Color::WHITE, //TODO : Définir notre propre palette de couleur
+                    One => Color { r: 190, g: 190, b: 190, a: 255 },    //light grey
+                    Two => Color { r: 80, g: 80, b: 80, a: 255 },    //dark grey
+                    Three => Color::WHITE,
                 };
                 canvas.set_draw_color(color);
                 canvas.fill_rect(Rect::new(

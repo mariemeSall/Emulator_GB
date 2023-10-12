@@ -1,9 +1,7 @@
-//première adresse consacrée aux tuiles
-pub const VRAM_START: usize = 0x8000;
-//dernière adresse consacrée aux tuiles
-pub const VRAM_END: usize = 0x9FFF;
-//taille utilisée par les données des tuiles
-pub const VRAM_SIZE: usize = VRAM_END - VRAM_START + 1;
+pub const VRAM_START: usize = 0x8000;   //première adresse consacrée aux tuiles
+pub const VRAM_END: usize = 0x9FFF;     //dernière adresse consacrée aux tuiles
+pub const VRAM_SIZE: usize = VRAM_END - VRAM_START + 1;     //taille utilisée par les données des tuiles
+pub const LCDC_ADDR: usize = 0xFF40;    //addresse du lcdc
 use crate::gpu::screen::{SCREEN_WIDTH, SCREEN_HEIGHT};
 
 #[derive(Copy, Clone)]
@@ -104,13 +102,17 @@ impl GPU {
     }
 }
 
-struct MemoryBus {
-    gpu: GPU
+pub struct MemoryBus {
+    gpu: GPU,
+    lcdc: LCDC
 }
 
 impl MemoryBus{
     pub fn new() -> Self {
-        MemoryBus { gpu: GPU::new() }
+        MemoryBus { 
+            gpu: GPU::new(),
+            lcdc: LCDC::new(),
+        }
     }
 
     //Lit un byte à partir d'une adresse donnée
@@ -122,8 +124,9 @@ impl MemoryBus{
             //Video RAM
             VRAM_START ..= VRAM_END => {
                 self.gpu.read_vram(address - VRAM_START)
-            }
-            _ => panic!("TODO; support others areas of the memory")
+            },
+            LCDC_ADDR => self.lcdc.read_byte(),
+            _ => panic!("TODO: support others areas of the memory")
         }
     }
 
@@ -132,8 +135,84 @@ impl MemoryBus{
         match address {
             VRAM_START ..= VRAM_END => {
                 self.gpu.write_vram(address - VRAM_START, value)
-            }
-            _ => panic!("TODO; support others areas of the memory")
+            },
+            LCDC_ADDR => self.lcdc.write_byte(value),
+            _ => panic!("TODO: support others areas of the memory")
         }
     }
 }
+
+pub struct LCDC {
+    display_enable: bool,       // Bit 7
+    window_tile_map: usize,     // Bit 6
+    window_display_enable: bool, // Bit 5
+    bg_and_window_tile_data: usize, // Bit 4
+    bg_tile_map: usize,         // Bit 3
+    sprite_size: usize,         // Bit 2
+    sprite_display_enable: bool, // Bit 1
+    bg_display_enable: bool,    // Bit 0
+}
+
+impl LCDC {
+    pub fn new() -> Self{
+        LCDC { 
+            display_enable: false,
+            window_tile_map: 0,
+            window_display_enable: false,
+            bg_and_window_tile_data: 0,
+            bg_tile_map: 0,
+            sprite_size: 0,
+            sprite_display_enable: false,
+            bg_display_enable: false,
+        }
+    }
+
+    pub fn read_byte(&self) -> u8 {
+        let mut result: u8 = 0;
+
+        if self.display_enable {
+            result |= 0x80;
+        } else {
+            result &= !0x80;
+        }
+
+        result |= (self.window_tile_map as u8) << 6;
+
+        if self.window_display_enable {
+            result |= 0x20;
+        } else {
+            result &= !0x20;
+        }
+
+        result |= (self.bg_and_window_tile_data as u8) << 4;
+        result |= (self.bg_tile_map as u8) << 3;
+        result |= (self.sprite_size as u8) << 2;
+
+        if self.sprite_display_enable {
+            result |= 0x02;
+        } else {
+            result &= !0x02;
+        }
+
+        if self.bg_display_enable {
+            result |= 0x01;
+        } else {
+            result &= !0x01;
+        }
+
+        result
+    }
+
+
+    pub fn write_byte(&mut self, value: u8) {
+        self.display_enable = (value & 0x80) != 0;
+        self.window_tile_map = ((value >> 6) & 0x01) as usize;
+        self.window_display_enable = (value & 0x20) != 0;
+        self.bg_and_window_tile_data = ((value >> 4) & 0x01) as usize;
+        self.bg_tile_map = ((value >> 3) & 0x01) as usize;
+        self.sprite_size = ((value >> 2) & 0x01) as usize;
+        self.sprite_display_enable = (value & 0x02) != 0;
+        self.bg_display_enable = (value & 0x01) != 0;
+    }
+}
+    

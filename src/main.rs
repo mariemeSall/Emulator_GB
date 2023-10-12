@@ -2,11 +2,15 @@ use crate::gpu::screen::_screenTest;
 
 pub mod cpu;
 pub mod gpu;
-use crate::cpu::register::Resgisters;
+//use crate::cpu::register::Resgisters;
+use crate::gpu::gpu::MemoryBus;
+use crate::gpu::gpu::VRAM_START;
+use crate::gpu::gpu::LCDC;
 use std::fs::File;
 use std::io::Read;
 
 fn main() {
+
     let rom_path = "rom/Tetris.gb";
 
     //Utilise File::open pour ouvrir le fichier ROM en mode lecture
@@ -17,7 +21,16 @@ fn main() {
             match file.read_to_end(&mut rom_data) {
                 Ok(_) => {
                     // Vous avez maintenant les données de la ROM dans le vecteur `rom_data`.
-                    // Vous pouvez les traiter selon vos besoins, par exemple, les charger dans l'émulateur Game Boy.
+
+                    //Initialise le MemoryBus
+                    let mut memory_bus = MemoryBus::new(); 
+                    let vram_start = VRAM_START; // Définissez l'adresse de début de la VRAM.
+
+                    //Pour chaque byte de la ROM écrit le dans la VRAM
+                    /*for (address, byte) in rom_data.iter().enumerate() {
+                        //Utilise la fonction write_byte pour écrire dans la VRAM
+                        memory_bus.write_byte((vram_start + address) as u16, *byte);
+                    }*/
                 }
                 Err(e) => {
                     eprintln!("Erreur lors de la lecture du fichier ROM : {}", e);
@@ -28,6 +41,5 @@ fn main() {
             eprintln!("Erreur lors de l'ouverture du fichier ROM : {}", e);
         }
     }
-
     _screenTest();
 }
