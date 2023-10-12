@@ -34,16 +34,11 @@ fn main() {
                         memory_bus.write_byte((vram_start + address) as u16, *byte);
                     }*/         
                     cpu.bus.load_data(rom_data);  
-                    
-                    while !cpu.is_halted {
-                        cpu.step();
-                    }
-
-                    
-
- 
-
-
+                   
+                    for i in 1..15 {
+                        cpu.step()
+                    };
+            
                 }
                 Err(e) => {
                     eprintln!("Erreur lors de la lecture du fichier ROM : {}", e);

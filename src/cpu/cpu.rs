@@ -34,7 +34,7 @@ impl MemoryBus {
         let len = data.len();
         for i in 0..len{
             let iter = data.pop();
-            let memory_len = len-1+0x0100; 
+            let memory_len = len-1; 
             match iter {
                 Some( source) => self.memory[memory_len-i] = source,
                 None => (),
@@ -700,7 +700,7 @@ impl CPU {
             ime: true,
             resgiters : Resgisters::new(),
             sp: 0xFFFE,
-            pc:  0x0150,
+            pc:  0x0100,
         }
     }
 
@@ -782,13 +782,13 @@ impl CPU {
                                 },
                                 Target16::R8=> {
                                     let n = self.bus.read_byte(self.pc + 1 ) as i8;
-                                    let (new, overflow) = self.resgiters.get_hl().overflowing_add_signed(n as i16);
+                                    let (new, overflow) = self.sp.overflowing_add_signed(n as i16);
                                     self.resgiters.f.zero = new==0;
                                     self.resgiters.f.carry = overflow;
-                                    let (_, overflow8) = ((self.resgiters.get_hl() & 0xFF) as u8).overflowing_add_signed(n);
+                                    let (_, overflow8) = ((self.sp & 0xFF) as u8).overflowing_add_signed(n);
                                     self.resgiters.f.half_carry= overflow8;
                             
-                                    self.resgiters.set_hl(new);
+                                    self.sp = new;
 
                                     self.pc.wrapping_add(2)
                                 },
@@ -1038,6 +1038,7 @@ impl CPU {
                             }
                         },
                         TargetType::HL(t16)=>{
+                            println!("qkjhgf");
                             match t16 {
                                 Target16::BC => self.resgiters.set_bc(self.resgiters.get_bc() + 1) ,
                                 Target16::DE => self.resgiters.set_de(self.resgiters.get_de() + 1),
@@ -1207,7 +1208,7 @@ impl CPU {
                                 JumpTest::NotZero => !self.resgiters.f.zero
                             };
                             self.jump(jump_condition)
-
+                           
                         },
                         Condition::No(a16) => {
                             match a16 {
@@ -2213,7 +2214,7 @@ impl CPU {
         let new = self.resgiters.a | value;
         self.resgiters.f.zero = new == 0;
         self.resgiters.f.subtract = false;
-        self.resgiters.f.half_carry = true;
+        self.resgiters.f.half_carry = false;
         self.resgiters.f.carry = false;
         self.resgiters.a = new;
     } 
@@ -2222,7 +2223,7 @@ impl CPU {
         let new = self.resgiters.a ^ value;
         self.resgiters.f.zero = new == 0;
         self.resgiters.f.subtract = false;
-        self.resgiters.f.half_carry = true;
+        self.resgiters.f.half_carry = false;
         self.resgiters.f.carry = false;
         self.resgiters.a = new;
     }
@@ -2249,7 +2250,7 @@ impl CPU {
         if condition {
             let lower = self.bus.read_byte(self.pc + 1);
             let higher = self.bus.read_byte(self.pc +2);
-            lower as u16 | (higher as u16)<<8
+            (lower as u16) | ((higher as u16)<<8)
         } else {
             self.pc.wrapping_add(3)
         }
@@ -2259,7 +2260,7 @@ impl CPU {
         if condition {
             let n = self.bus.read_byte(self.pc + 1) as i8;
 
-            self.pc.wrapping_add_signed(n as i16)
+            self.pc.wrapping_add_signed(n as i16) + 2
         } else {
             self.pc.wrapping_add(2)
         }
@@ -2311,8 +2312,14 @@ impl CPU {
 
     }
 
-    pub fn swap(&self, value:u8)-> u8 {
-        ((value & 0xF0)>>4)|((value & 0x0F)<<4)
+    pub fn swap(&mut self, value:u8)-> u8 { 
+        let new = ((value & 0xF0)>>4)|((value & 0x0F)<<4);
+        self.resgiters.f.zero = new==0;
+        self.resgiters.f.half_carry = false;
+        self.resgiters.f.carry = false;
+        self.resgiters.f.subtract = false;
+
+        new
     }
 
     pub fn bit(&mut self, reg:u8, n:u8) {
