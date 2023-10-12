@@ -1,10 +1,12 @@
-use crate::gpu::screen::_screenTest;
+use crate::gpu::screen::Screen;
 
 pub mod cpu;
 pub mod gpu;
 use crate::cpu::cpu::CPU;
 use crate::gpu::gpu::MemoryBus;
 use crate::gpu::gpu::VRAM_START;
+use crate::gpu::screen::{SCALE_FACTOR, SCREEN_HEIGHT, SCREEN_WIDTH};
+use crate::gpu::screen::GameBoy;
 use std::fs::File;
 use std::io::Read;
 
@@ -30,11 +32,11 @@ fn main() {
                         //Utilise la fonction write_byte pour écrire dans la VRAM
                         memory_bus.write_byte((vram_start + address) as u16, *byte);
                     }*/
-                    cpu.bus.load_data(rom_data);  
+                    /*cpu.bus.load_data(rom_data);  
                     
                     while !cpu.is_halted {
                         cpu.step();
-                    }
+                    }*/
                 }
                 Err(e) => {
                     eprintln!("Erreur lors de la lecture du fichier ROM : {}", e);
@@ -62,5 +64,11 @@ fn main() {
             eprintln!("Erreur lors de l'ouverture du fichier ROM : {}", e);
         }
     }
-   // _screenTest();
+
+    let sdl_context = sdl2::init().unwrap();
+    let mut screen = Screen::new(&sdl_context, SCALE_FACTOR, SCREEN_WIDTH, SCREEN_HEIGHT);
+    let mut gameboy = GameBoy::new();
+
+    //Lance le screen
+    screen.run(&mut gameboy, SCALE_FACTOR);
 }
