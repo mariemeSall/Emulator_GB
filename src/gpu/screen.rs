@@ -15,35 +15,37 @@ pub const SCREEN_WIDTH: u32 = 160;
 pub const SCREEN_HEIGHT: u32 = 144;
 pub const SCALE_FACTOR: u32 = 4;
 
-struct Emulator {
+struct GameBoy {
     //cpu: CPU,
     gpu: GPU,
     //memory_bus: MemoryBus,
 }
 
-impl Emulator {
+impl GameBoy {
     fn new() -> Self {
-        Emulator {
+        GameBoy {
             //cpu: CPU::new(),
             gpu: GPU::new(),
             //memory_bus: MemoryBus::new(),
         }
     }
     fn step(&mut self) {
-        // Exécutez une étape de l'émulateur ici.
-        // Par exemple, vous pouvez mettre à jour le CPU, le GPU, la mémoire, etc.
+        // Exécutez une étape de l'émulateur ici
+        // Par exemple, vous pouvez mettre à jour le CPU, le GPU, la mémoire, etc
         //self.cpu.step();
         //self.gpu.step();
     }
 
     fn get_screen_data(&self) -> [[PixelColorVal; SCREEN_WIDTH as usize]; SCREEN_HEIGHT as usize] {
-        // Obtenez les données d'écran de l'émulateur ici.
-        // Par exemple, vous pouvez récupérer les données du GPU.
         self.gpu.get_screen_data()
     }
 
-    // Implémentez les fonctions nécessaires pour faire fonctionner l'émulateur.
-    // Gérer la mise à jour de l'écran ici.
+    // Implémentez les fonctions nécessaires pour faire fonctionner l'émulateur
+    // Gérer la mise à jour de l'écran ici
+}
+
+pub struct Screen{
+    
 }
 
 pub fn _screenTest() {
@@ -57,7 +59,7 @@ pub fn _screenTest() {
     let mut canvas = window.into_canvas().build().unwrap();
     let mut event_pump = sdl_context.event_pump().unwrap();
 
-    let mut emulator = Emulator::new();
+    let mut gameBoy = GameBoy::new();
 
     'running: loop {
         for event in event_pump.poll_iter() {
@@ -71,9 +73,9 @@ pub fn _screenTest() {
             }
         }
 
-        emulator.step();
+        gameBoy.step();
 
-        let screen_data = emulator.get_screen_data();
+        let screen_data = gameBoy.get_screen_data();
 
         for y in 0..SCREEN_HEIGHT as usize {
             for x in 0..SCREEN_WIDTH as usize {
