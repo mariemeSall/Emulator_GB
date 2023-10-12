@@ -1,20 +1,26 @@
 use super::register::Resgisters;
 
 pub struct CPU {
-    resgiters: Resgisters,
-    pc: u16,
-    sp: u16,
-    bus: MemoryBus,
-    is_halted: bool,
-    ime: bool,
+    pub resgiters: Resgisters,
+    pub pc: u16,
+    pub sp: u16,
+    pub bus: MemoryBus,
+    pub is_halted: bool,
+    pub ime: bool,
 }
 
 pub struct MemoryBus {
-    memory: [u8; 0xFFFF]
+    pub memory: [u8; 0xFFFF+1]
 
 }
 
 impl MemoryBus {
+    pub fn new()-> MemoryBus {
+
+        MemoryBus { memory: [0; 0xFFFF+1] }
+
+    }
+
     pub fn read_byte(&self, address: u16) -> u8 {
       self.memory[address as usize]
     }
@@ -22,6 +28,19 @@ impl MemoryBus {
     pub fn write_byte(&mut self, address: u16, source: u8){
         self.memory[address as usize] = source;
 
+    }
+
+    pub fn load_data(&mut self, mut data: Vec<u8>){
+        let len = data.len();
+        for i in 0..len{
+            let iter = data.pop();
+            let memory_len = len-1+0x0100; 
+            match iter {
+                Some( source) => self.memory[memory_len-i] = source,
+                None => (),
+            }
+            
+        }
     }
 }
 
@@ -674,11 +693,22 @@ impl Instructions {
 
 
 impl CPU {
+    pub fn new() -> CPU {
+        CPU {
+            bus : MemoryBus::new(),
+            is_halted : false,
+            ime: true,
+            resgiters : Resgisters::new(),
+            sp: 0xFFFE,
+            pc:  0x0150,
+        }
+    }
 
     pub fn execute(&mut self, instruction: Instructions) -> u16{
         if !self.is_halted{
             match instruction {
                 Instructions::ADD(add)=>{
+                    println!("ADD");
                     match add {
                         TargetType::A(target) =>{
                             match target {
@@ -769,6 +799,7 @@ impl CPU {
                     }
                 },
                 Instructions::ADC(target) => {
+                    println!("ADC");
                     match target {
                         Target8::A=> {
                             self.resgiters.a = self.adc(self.resgiters.a); 
@@ -817,6 +848,7 @@ impl CPU {
                     }
                 },
                 Instructions::SUB(target)=> {
+                    println!("SUB");
                     match target {
                         Target8::A => {
                             self.resgiters.a = self.sub(self.resgiters.a);
@@ -857,6 +889,7 @@ impl CPU {
                     }
                 },
                 Instructions::SBC(target)=> {
+                    println!("SBC");
                     match target {
                         Target8::A => {
                             self.resgiters.a = self.sbc(self.resgiters.a);
@@ -897,6 +930,7 @@ impl CPU {
                     }
                 },
                 Instructions::CP(target)=> {
+                    println!("CP");
                     match target {
                         Target8::A => {
                             self.sub(self.resgiters.a);
@@ -938,6 +972,7 @@ impl CPU {
                     }
                 },
                 Instructions::INC(target)=> {
+                    println!("INC");
                     match target {
                         TargetType::A(t8) => {
                             match t8 {
@@ -1015,6 +1050,7 @@ impl CPU {
                     self.pc.wrapping_add(1)
                 },
                 Instructions::DEC(target)=> {
+                    println!("DEC");
                     match target {
                         TargetType::A(t8) => {
                             match t8 {
@@ -1092,6 +1128,7 @@ impl CPU {
                     self.pc.wrapping_add(1)
                 },
                 Instructions::AND(target) => {
+                    println!("AND");
                     match target {
                         Target8::A => self.and(self.resgiters.a),
                         Target8::B => self.and(self.resgiters.b),
@@ -1109,6 +1146,7 @@ impl CPU {
 
                 },
                 Instructions::OR(target) => {
+                    println!("OR");
                     match target {
                         Target8::A => self.or(self.resgiters.a),
                         Target8::B => self.or(self.resgiters.b),
@@ -1126,6 +1164,7 @@ impl CPU {
 
                 },
                 Instructions::XOR(target) => {
+                    println!("XOR");
                     match target {
                         Target8::A => self.xor(self.resgiters.a),
                         Target8::B => self.xor(self.resgiters.b),
@@ -1143,18 +1182,22 @@ impl CPU {
 
                 },
                 Instructions::CCF() => {
+                    println!("CCF");
                     self.ccf();
                     self.pc.wrapping_add(1)
                 },
                 Instructions::SCF() => {
+                    println!("SCF");
                     self.scf();
                     self.pc.wrapping_add(1)
                 },
                 Instructions::CPL()=> {
+                    println!("CPL");
                     self.cpl();
                     self.pc.wrapping_add(1)
                 }
                 Instructions::JP(condition) => {
+                    println!("JP");
                     match condition {
                         Condition::Yes(jump)=> {
                             let jump_condition = match jump {
@@ -1178,6 +1221,7 @@ impl CPU {
                     
                 },
                 Instructions::JR(jmp)=> {
+                    println!("JR");
                     match jmp {
                         JumpCond::True => {
                             self.jr(true)
@@ -1195,6 +1239,7 @@ impl CPU {
 
                 },
                 Instructions::LD(load_type) => {
+                    println!("LD");
                     match load_type {
                         LoadType::Byte(target,source)=>{
                             let source_value = match source {
@@ -1302,6 +1347,7 @@ impl CPU {
                     }
                 }
                 Instructions::PUSH(target) => {
+                    println!("PUSH");
                     let value = match target {
                         StackTarget::BC => self.resgiters.get_bc(),
                         StackTarget::DE => self.resgiters.get_de(),
@@ -1312,6 +1358,7 @@ impl CPU {
                     self.pc.wrapping_add(1)
                 },
                 Instructions::POP(target) => {
+                    println!("POP");
                     let pop = self.pop();
                     match target {
                         StackTarget::BC => self.resgiters.set_bc(pop),
@@ -1322,6 +1369,7 @@ impl CPU {
                     self.pc.wrapping_add(1)
                 },
                 Instructions::CALL(jmp)=>{
+                    println!("CALL");
                     match jmp {
                         JumpCond::True => self.call(true),
                         JumpCond::Jump(jump)=> {
@@ -1337,6 +1385,7 @@ impl CPU {
                     
                 },
                 Instructions::RET(jmp)=>{
+                    println!("RET");
                     match jmp {
                         JumpCond::True => self.ret(true),
                         JumpCond::Jump(jump) => {
@@ -1352,6 +1401,7 @@ impl CPU {
                     
                 },
                 Instructions::RETI() => {
+                    println!("RETI");
                     self.ime = true;
                     self.ret(true)
                 },
@@ -1360,6 +1410,7 @@ impl CPU {
                 Instructions::DI() => {self.ime =false; self.pc.wrapping_add(1)},
                 Instructions::EI() => {self.ime =true; self.pc.wrapping_add(1)},
                 Instructions::RLCA() => {
+                    println!("RLCA");
                     let n = self.resgiters.a & 0x80;
                     self.resgiters.a = (self.resgiters.a <<1) | n;
                     self.resgiters.f.zero = self.resgiters.a ==0;
@@ -1369,6 +1420,7 @@ impl CPU {
                     self.pc.wrapping_add(1)
                 },
                 Instructions::RLA() => {
+                    println!("RLA");
                     let n = self.resgiters.a & 0x80;
                     self.resgiters.a = (self.resgiters.a <<1) | (if self.resgiters.f.carry {1} else {0});
                     self.resgiters.f.carry = if n ==0 {false} else {true};
@@ -1378,6 +1430,7 @@ impl CPU {
                     self.pc.wrapping_add(1)
                 },
                 Instructions::RRCA() => {
+                    println!("RRCA");
                     let n = self.resgiters.a & 0x01;
                     self.resgiters.a = (self.resgiters.a >>1) | n <<7;
                     self.resgiters.f.zero = self.resgiters.a ==0;
@@ -1387,6 +1440,7 @@ impl CPU {
                     self.pc.wrapping_add(1)
                 },
                 Instructions::RRA() => {
+                    println!("RRA");
                     let n = self.resgiters.a & 0x01;
                     self.resgiters.a = (self.resgiters.a >>1) | ((if self.resgiters.f.carry {1} else {0}) as u8)<<7;
                     self.resgiters.f.carry = if n ==0 {false} else {true};
@@ -1396,6 +1450,7 @@ impl CPU {
                     self.pc.wrapping_add(1)
                 },
                 Instructions::DAA() => {
+                    println!("DAA");
                     let mut a = self.resgiters.a;
                     if self.resgiters.f.subtract {
                         if self.resgiters.f.carry || a>0x99 { a+= 0x60; self.resgiters.f.carry =true;}
@@ -1415,6 +1470,7 @@ impl CPU {
                     self.pc.wrapping_add(1)
                 }
                 Instructions::RST(hexa)=> {
+                    println!("RST");
                     let hex : u16 = match hexa {
                         RestartValue::H00 => 0x0000,
                         RestartValue::H08 => 0x0008,
@@ -1429,12 +1485,14 @@ impl CPU {
                     hex
                 },
                 Instructions::STOP() => {
+                    println!("STOP");
                     self.ime = false;
                     self.is_halted = true;
                     self.pc.wrapping_add(1)
                 },
                 //Instructions avec prefixe
                 Instructions::RLC(target) => {
+                    println!(" PREFIX RLC");
                     match target {
                         Target8::A => {
                             let n = self.resgiters.a & 0x80;
@@ -1507,6 +1565,8 @@ impl CPU {
                     self.pc.wrapping_add(1)
                 },
                 Instructions::RL(target) => {
+                    println!(" PREFIX RL");
+
                     match target {
                         Target8::A => {
                             let n = self.resgiters.a & 0x80;
@@ -1581,7 +1641,8 @@ impl CPU {
 
                 },
                 Instructions::RRC(target) => {
-                    
+                    println!(" PREFIX RRC");
+
                     match target {
                         Target8::A => {
                             let n = self.resgiters.a & 0x01;
@@ -1654,6 +1715,8 @@ impl CPU {
                     self.pc.wrapping_add(1)
                 },
                 Instructions::RR(target) => {
+                    println!(" PREFIX RR");
+
                     match target {
                         Target8::A => {
                             let n = self.resgiters.a & 0x01;
@@ -1726,6 +1789,7 @@ impl CPU {
                     self.pc.wrapping_add(1)
                 },
                 Instructions::SLA(target) => {
+                    println!(" PREFIX SLA");
 
                     match target {
                         Target8::A => {
@@ -1798,7 +1862,8 @@ impl CPU {
                     self.pc.wrapping_add(1)
                 },
                 Instructions::SRA(target) => {
-                       
+                    println!(" PREFIX SRA");
+
                     match target {
                         Target8::A => {
                             let n = self.resgiters.a & 0x80;
@@ -1871,7 +1936,8 @@ impl CPU {
                     self.pc.wrapping_add(1)
                 }
                 Instructions::SRL(target) => {
-                       
+                    println!(" PREFIX SRL");
+  
                     match target {
                         Target8::A => {
                             let n = self.resgiters.a & 0x80;
@@ -1944,6 +2010,7 @@ impl CPU {
                     self.pc.wrapping_add(1)
                 }
                 Instructions::SWAP(target) => {
+                    println!(" PREFIX SWAP");
                     match target {
                         Target8::A => self.resgiters.a = self.swap(self.resgiters.a),
                         Target8::B => self.resgiters.a = self.swap(self.resgiters.b),
@@ -1962,6 +2029,8 @@ impl CPU {
                     self.pc.wrapping_add(1)
                 }
                 Instructions::BIT(n,target ) => {
+                    println!(" PREFIX BIT");
+
                     if n<8 {
                         match target {
                             Target8::A => self.bit(self.resgiters.a, n),
@@ -1982,6 +2051,8 @@ impl CPU {
                     self.pc.wrapping_add(1)
                 },   
                 Instructions::SET(n,target ) => {
+                    println!(" PREFIX SET");
+
                     if n<8 {
                         match target {
                             Target8::A => self.set(self.resgiters.a, n),
@@ -2002,6 +2073,8 @@ impl CPU {
                     self.pc.wrapping_add(1)
                 },   
                 Instructions::RES(n,target ) => {
+                    println!(" PREFIX RES");
+
                     if n<8 {
                         match target {
                             Target8::A => self.res(self.resgiters.a, n),
@@ -2021,8 +2094,6 @@ impl CPU {
 
                     self.pc.wrapping_add(1)
                 },
-
-                _=> self.pc,
             }
         } else {
             self.pc
@@ -2032,6 +2103,9 @@ impl CPU {
     pub fn step(&mut self){
         //On récupère l'instruction à faire depuis le bus.
         let mut instruction_byte = self.bus.read_byte(self.pc);
+        
+        print!("{:02X} Instruction : ", instruction_byte);
+
         //On vérifie si l'instruction est un préfixe.
         let prefixed = instruction_byte== 0xCB;
 
@@ -2044,7 +2118,7 @@ impl CPU {
         let next_pc = if let Some(instruction) = Instructions::from_bytes(instruction_byte, prefixed) {
             self.execute(instruction)
         } else {
-            panic!("Pas d'instuction trouvée depuis l'adresse 0x{:x}", instruction_byte);
+            panic!("Pas d'instuction trouvée depuis l'adresse 0x{:02X}", instruction_byte);
         };
 
         //On change le pointeur pour l'execution suivante.
@@ -2214,13 +2288,15 @@ impl CPU {
     }
 
     pub fn call(&mut self, jump: bool) -> u16{
-        let lower = self.bus.read_byte(self.pc + 2);
-        let higher = self.bus.read_byte(self.pc + 3);
+        let lower = self.bus.read_byte(self.pc + 1);
+        let higher = self.bus.read_byte(self.pc + 2);
         let next_program = (lower as u16) & ((higher as u16)<<8);
         if jump {
-            self.push(self.pc + 1);
+            self.push(self.pc + 3);
+            println!("CALL JUMP TO : {:02X}", next_program);
             next_program
         } else {
+            println!("CALL JUMP TO : {:02X}", self.bus.read_byte(self.pc + 3));
             self.pc.wrapping_add(3)
         }
 

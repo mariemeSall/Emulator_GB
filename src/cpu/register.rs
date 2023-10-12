@@ -30,6 +30,24 @@ pub struct Resgisters {
 }
 
 impl Resgisters {
+    pub fn new()-> Resgisters {
+        Resgisters { 
+            a: 0x01, 
+            b: 0x00, 
+            c: 0x13, 
+            d: 0x00, 
+            e: 0xD8, 
+            f: FlagsRegister { 
+                zero: true, 
+                subtract: false, 
+                half_carry: true, 
+                carry: true 
+            }, 
+            h: 0x01, 
+            l: 0x4D, 
+        }
+    }
+
     pub fn get_af(&self) -> u16 {
         //On récupère les bits du register a en u16.
         //Comme ils sont sur les 8 derniers bits, on les décale sur les 8 premiers.
