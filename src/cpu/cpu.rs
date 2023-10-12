@@ -2022,7 +2022,6 @@ impl CPU {
                     self.pc.wrapping_add(1)
                 },
 
-                _=> self.pc,
             }
         } else {
             self.pc
