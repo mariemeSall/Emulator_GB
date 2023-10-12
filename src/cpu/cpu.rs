@@ -86,6 +86,19 @@ pub enum JumpCond {
     True,
 }
 
+pub enum RestartValue {
+    H00,
+    H08,
+    H10,
+    H18,
+    H20,
+    H28,
+    H30,
+    H38,
+    
+
+}
+
 pub enum Instructions {
     ADD(TargetType),
     LD(LoadType),
@@ -128,9 +141,9 @@ pub enum Instructions {
     RES(u8, Target8),
     JP(Condition),
     JR(JumpCond),
+    RST(RestartValue),
 
     //TODO
-    JPI(),
     STOP(),
     
 }
@@ -347,43 +360,51 @@ impl Instructions {
             0xC4 => Some(Instructions::CALL(JumpCond::Jump(JumpTest::NotZero))),
             0xC5 => Some(Instructions::PUSH(StackTarget::BC)),
             0xC6 => Some(Instructions::ADD(TargetType::A(Target8::D8))),
+            0xC7 => Some(Instructions::RST(RestartValue::H00)),
             0xC8 => Some(Instructions::RET(JumpCond::Jump(JumpTest::Zero))),
             0xC9 => Some(Instructions::RET(JumpCond::True)),
             0xCA => Some(Instructions::JP(Condition::Yes(JumpTest::Zero))), 
             0xCC => Some(Instructions::CALL(JumpCond::Jump(JumpTest::Zero))),
             0xCD => Some(Instructions::CALL(JumpCond::True)),
             0xCE => Some(Instructions::ADC(Target8::D8)),
+            0xCF => Some(Instructions::RST(RestartValue::H08)),
             0xD0 => Some(Instructions::RET(JumpCond::Jump(JumpTest::NotCarry))),
             0xD1 => Some(Instructions::POP(StackTarget::DE)),
             0xD2 => Some(Instructions::JP(Condition::Yes(JumpTest::NotCarry))),
             0xD4 => Some(Instructions::CALL(JumpCond::Jump(JumpTest::NotCarry))),
             0xD5 => Some(Instructions::PUSH(StackTarget::DE)),
             0xD6 => Some(Instructions::SUB(Target8::D8)),
+            0xD7 => Some(Instructions::RST(RestartValue::H10)),
             0xD8 => Some(Instructions::RET(JumpCond::Jump(JumpTest::Carry))),
             0xD9 => Some(Instructions::RETI()),
             0xDA => Some(Instructions::JP(Condition::Yes(JumpTest::Carry))),
             0xDC => Some(Instructions::CALL(JumpCond::Jump(JumpTest::Carry))),
             0xDE => Some(Instructions::SBC(Target8::D8)),
+            0xDF => Some(Instructions::RST(RestartValue::H18)),
             0xE0 => Some(Instructions::LD(LoadType::A(LoadATarget::A8, LoadASource::A))), 
             0xE1 => Some(Instructions::POP(StackTarget::HL)),
             0xE2 => Some(Instructions::LD(LoadType::A(LoadATarget::C, LoadASource::A))), 
             0xE5 => Some(Instructions::PUSH(StackTarget::HL)),
             0xE6 => Some(Instructions::AND(Target8::D8)),
+            0xE7 => Some(Instructions::RST(RestartValue::H20)),
             0xE8 => Some(Instructions::ADD(TargetType::HL(Target16::R8))),
             0xE9 => Some(Instructions::JP(Condition::No(JumpValue::Hl))),
             0xEA => Some(Instructions::LD(LoadType::A(LoadATarget::A16, LoadASource::A))), 
             0xEE => Some(Instructions::XOR(Target8::D8)),
+            0xEF => Some(Instructions::RST(RestartValue::H28)),
             0xF0 => Some(Instructions::LD(LoadType::A(LoadATarget::A, LoadASource::A8))), 
             0xF1 => Some(Instructions::POP(StackTarget::AF)),
             0xF2 => Some(Instructions::LD(LoadType::A(LoadATarget::A, LoadASource::C))), 
             0xF3 => Some(Instructions::DI()),
             0xF5 => Some(Instructions::PUSH(StackTarget::AF)),
             0xF6 => Some(Instructions::OR(Target8::D8)),
+            0xF7 => Some(Instructions::RST(RestartValue::H30)),
             0xF8 => Some(Instructions::LD(LoadType::Word(LoadWordTarget::HL, LoadWordSource::SP8))),
             0xF9 => Some(Instructions::LD(LoadType::Word(LoadWordTarget::SP, LoadWordSource::HL))),
             0xFA => Some(Instructions::LD(LoadType::A(LoadATarget::A, LoadASource::A16))), 
             0xFB => Some(Instructions::EI()),
             0xFE => Some(Instructions::CP(Target8::D8)),
+            0xFF => Some(Instructions::RST(RestartValue::H38)),
             _ => None,
         }
     }
@@ -1393,7 +1414,25 @@ impl CPU {
 
                     self.pc.wrapping_add(1)
                 }
-                
+                Instructions::RST(hexa)=> {
+                    let hex : u16 = match hexa {
+                        RestartValue::H00 => 0x0000,
+                        RestartValue::H08 => 0x0008,
+                        RestartValue::H10 => 0x0010,
+                        RestartValue::H18 => 0x0018,
+                        RestartValue::H20 => 0x0020,
+                        RestartValue::H28 => 0x0028,
+                        RestartValue::H30 => 0x0030,
+                        RestartValue::H38 => 0x0038,
+                    };
+                    self.push(self.pc);
+                    hex
+                },
+                Instructions::STOP() => {
+                    self.ime = false;
+                    self.is_halted = true;
+                    self.pc.wrapping_add(1)
+                },
                 //Instructions avec prefixe
                 Instructions::RLC(target) => {
                     match target {
@@ -1982,6 +2021,7 @@ impl CPU {
 
                     self.pc.wrapping_add(1)
                 },
+
                 _=> self.pc,
             }
         } else {
