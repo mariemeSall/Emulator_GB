@@ -2,7 +2,8 @@ pub const VRAM_START: usize = 0x8000;   //première adresse consacrée aux tuile
 pub const VRAM_END: usize = 0x9FFF;     //dernière adresse consacrée aux tuiles
 pub const VRAM_SIZE: usize = VRAM_END - VRAM_START + 1;     //taille utilisée par les données des tuiles
 pub const LCDC_ADDR: usize = 0xFF40;    //addresse du lcdc
-use crate::gpu::screen::SCALE_FACTOR;
+
+use crate::gpu::gameboy::SCALE_FACTOR;
 
 use sdl2::render::Canvas;
 use sdl2::pixels::Color;

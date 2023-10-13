@@ -1,2 +1,2 @@
 pub mod gpu;
-pub mod screen;
+pub mod gameboy;

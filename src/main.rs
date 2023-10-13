@@ -5,8 +5,7 @@ pub mod gpu;
 use crate::cpu::cpu::CPU;
 use crate::gpu::gpu::{MemoryBus, GPU};
 use crate::gpu::gpu::VRAM_START;
-use crate::gpu::screen::{SCALE_FACTOR, SCREEN_HEIGHT, SCREEN_WIDTH};
-use crate::gpu::screen::GameBoy;
+use crate::gpu::gameboy::GameBoy;
 use std::fs::File;
 use std::io::Read;
 
@@ -36,20 +35,6 @@ fn main() {
                         memory_bus.write_byte((address) as u16, *byte);
                         //print!("0x{:X} ", address);
                     }
-
-                    for i in 0..20 {
-                        memory_bus.gpu.vram[i] = 0xFF;
-                    }
-                    
-                    /* 
-                    for hexa in memory_bus.gpu.vram {
-                        print!("{:02X} ", hexa)
-                    } */
-                    /*cpu.bus.load_data(rom_data);  
-                    
-                    while !cpu.is_halted {
-                        cpu.step();
-                    }*/
                 }
                 Err(e) => {
                     eprintln!("Erreur lors de la lecture du fichier ROM : {}", e);
