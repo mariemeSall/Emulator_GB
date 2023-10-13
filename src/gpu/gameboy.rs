@@ -1,5 +1,6 @@
 extern crate sdl2;
 use super::gpu::GPU;
+use super::inputs::{Keypad, JoypadKey};
 
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
@@ -14,6 +15,7 @@ pub struct GameBoy<'a> {
     pub gpu: &'a mut GPU,
     //memory_bus: MemoryBus,
     pub screen_is_open: bool,
+    pub keypad: Keypad,
 }
 
 impl<'a> GameBoy<'a> {
@@ -23,11 +25,11 @@ impl<'a> GameBoy<'a> {
             gpu: gpu,
             //memory_bus: MemoryBus::new(),
             screen_is_open: false,
+            keypad: Keypad::new(),
         }
     }
     pub fn step(&mut self) {
-        // Exécutez une étape de l'émulateur ici
-        // Par exemple, vous pouvez mettre à jour le CPU, le GPU, la mémoire, etc
+        //Etape de l'émulateur ici
         //self.cpu.step();
         //self.gpu.step();
     }
@@ -48,27 +50,52 @@ impl<'a> GameBoy<'a> {
             for event in event_pump.poll_iter() {
                 match event {
                     Event::Quit { .. } => {
-                        self.screen_is_open = false; // Ferme la fenêtre
+                        self.screen_is_open = false;
                         break 'running;
                     }
-                    Event::KeyDown {
-                        keycode: Some(Keycode::Escape),
-                        ..
-                    } => {
-                        self.screen_is_open = false; // Ferme la fenêtre
-                        break 'running;
+                    Event::KeyDown { keycode, repeat, .. } => {
+                        if !repeat {
+                            if let Some(keycode) = keycode {
+                                match keycode {
+                                    Keycode::Right => self.keypad.keyDown(JoypadKey::Right),
+                                    Keycode::Left => self.keypad.keyDown(JoypadKey::Left),
+                                    Keycode::Up => self.keypad.keyDown(JoypadKey::Up),
+                                    Keycode::Down => self.keypad.keyDown(JoypadKey::Down),
+                                    Keycode::A => self.keypad.keyDown(JoypadKey::A),
+                                    Keycode::B => self.keypad.keyDown(JoypadKey::B),
+                                    Keycode::S => self.keypad.keyDown(JoypadKey::Select),
+                                    Keycode::Space => self.keypad.keyDown(JoypadKey::Start),
+                                    _ => {}
+                                }
+                            }
+                        }
+                    }
+                    Event::KeyUp { keycode, .. } => {
+                        if let Some(keycode) = keycode {
+                            match keycode {
+                                Keycode::Right => self.keypad.keyUp(JoypadKey::Right),
+                                Keycode::Left => self.keypad.keyUp(JoypadKey::Left),
+                                Keycode::Up => self.keypad.keyUp(JoypadKey::Up),
+                                Keycode::Down => self.keypad.keyUp(JoypadKey::Down),
+                                Keycode::Z => self.keypad.keyUp(JoypadKey::A),
+                                Keycode::X => self.keypad.keyUp(JoypadKey::B),
+                                Keycode::Space => self.keypad.keyUp(JoypadKey::Select),
+                                Keycode::Return => self.keypad.keyUp(JoypadKey::Start),
+                                _ => {}
+                            }
+                        }
                     }
                     _ => {}
                 }
             }
-
-            if !(self.screen_is_open) {
-                break 'running; //Sort de la boucle si la fenêtre est fermée
+    
+            if !self.screen_is_open {
+                break 'running;
             }
 
             canvas.present();
 
-            // Obtenez les données du tile_set depuis le GPU.
+            // Obtient les données du tile_set depuis le GPU
             let tile_set = &self.gpu.tile_set;
 
             // Met à jour l'affichage sur l'écran SDL2

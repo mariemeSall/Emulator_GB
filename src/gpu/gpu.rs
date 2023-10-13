@@ -85,10 +85,7 @@ impl GPU {
 
             //Affecte la valeur du pixel dans le tableau de tuiles.
             self.tile_set[tile_index][row_index][pixel_index] = value;
-            
-            if tile_index == 0 {
-                print!("{} ", tile_index);
-            }
+
         }
 
         /*for i in 0 .. 8 {
@@ -103,10 +100,10 @@ impl GPU {
                 for pixel_index in 0..8 {
                     // Determine la couleur du pixel selon la valeur
                     let pixel_color = match self.tile_set[tile_index][row_index][pixel_index] {
-                        PixelColorVal::Zero => Color::BLACK,
-                        PixelColorVal::One => Color { r: 190, g: 190, b: 190, a: 255 }, // light grey
-                        PixelColorVal::Two => Color { r: 80, g: 80, b: 80, a: 255 }, // dark grey
-                        PixelColorVal::Three => Color::WHITE,
+                        PixelColorVal::Zero => Color { r: 50, g: 100, b: 190, a: 255 },
+                        PixelColorVal::One => Color { r: 200, g: 100, b: 50, a: 255 }, // light grey
+                        PixelColorVal::Two => Color { r: 35, g: 200, b: 70, a: 255 }, // dark grey
+                        PixelColorVal::Three => Color { r: 60, g: 150, b: 50, a: 255 },
                     };
 
                     // Calcule les coordonnées pour dessiner le pixel
