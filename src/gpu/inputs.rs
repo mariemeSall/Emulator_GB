@@ -56,7 +56,7 @@ impl Keypad{
         self.interrupted = true;
     }
 
-    pub fn readKey(&self) -> u8 {
+    /*pub fn readKey(&self) -> u8 {
         //Définir les masques pour chaque touche
         const RIGHT_MASK: u8 = 0x01;    //le bit 0 du registre p14
         const LEFT_MASK: u8 = 0x02;     //le bit 1 du registre p14
@@ -100,6 +100,6 @@ impl Keypad{
 
         //Retourne l'état des touches
         keys
-    }
+    }*/
 }
 

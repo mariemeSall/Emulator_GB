@@ -202,9 +202,7 @@ impl<'a> MemoryBus<'a>{
             _ => {if address< 0x1800 {
                 self.gpu.write_vram(address , value);
                 //print!("{}", value);
-            }else {
-                    
-                }}//panic!("TODO: support others areas of the memory")
+            }}//panic!("TODO: support others areas of the memory")
         }
     }
 }

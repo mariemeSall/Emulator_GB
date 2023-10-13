@@ -53,6 +53,12 @@ impl<'a> GameBoy<'a> {
                         self.screen_is_open = false;
                         break 'running;
                     }
+                    Event::KeyDown {
+                        keycode: Some(Keycode::Escape),
+                        ..} => {
+                            self.screen_is_open = false; //Ferme la fenêtre
+                            break 'running;
+                    }
                     Event::KeyDown { keycode, repeat, .. } => {
                         if !repeat {
                             if let Some(keycode) = keycode {
@@ -77,10 +83,10 @@ impl<'a> GameBoy<'a> {
                                 Keycode::Left => self.keypad.keyUp(JoypadKey::Left),
                                 Keycode::Up => self.keypad.keyUp(JoypadKey::Up),
                                 Keycode::Down => self.keypad.keyUp(JoypadKey::Down),
-                                Keycode::Z => self.keypad.keyUp(JoypadKey::A),
-                                Keycode::X => self.keypad.keyUp(JoypadKey::B),
-                                Keycode::Space => self.keypad.keyUp(JoypadKey::Select),
-                                Keycode::Return => self.keypad.keyUp(JoypadKey::Start),
+                                Keycode::A => self.keypad.keyUp(JoypadKey::A),
+                                Keycode::B => self.keypad.keyUp(JoypadKey::B),
+                                Keycode::S => self.keypad.keyUp(JoypadKey::Select),
+                                Keycode::Space => self.keypad.keyUp(JoypadKey::Start),
                                 _ => {}
                             }
                         }
@@ -93,13 +99,13 @@ impl<'a> GameBoy<'a> {
                 break 'running;
             }
 
-            canvas.present();
-
             // Obtient les données du tile_set depuis le GPU
             let tile_set = &self.gpu.tile_set;
 
             // Met à jour l'affichage sur l'écran SDL2
             self.gpu.draw_tile_set(&mut canvas);
+
+            canvas.present();
 
             std::thread::sleep(Duration::new(0, 1_000_000_000 / 60));
         }
