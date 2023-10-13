@@ -22,7 +22,7 @@ pub fn black_tile() -> Tile{
 
 pub struct GPU{
     //video ram
-    vram: [u8; VRAM_SIZE],
+    pub vram: [u8; VRAM_SIZE],
     tile_set: [Tile; 384],
 }
 
@@ -49,6 +49,8 @@ impl GPU {
 
         //Une ligne de tuiles est encodée sur deux 2 bytes, le premier octet est toujours une adresse paire
         //En utilisant un & avec 0xFFFE, on obtient l'adresse du premier octet
+       
+       
         let normalized_index = address & 0xFFFE;
 
         //Les 2 bytes de la ligne de tuiles
@@ -56,9 +58,11 @@ impl GPU {
         let byte2 = self.vram[normalized_index + 1];
 
         //Une tuile mesure 16 octets au total
-        let tile_index = address / 16;
+        let tile_index = address / 16; //faut pas toucher a la valeur de address, on travail sur les values et c'est pas la qu'il faut diviser par 16
+        //tile index devrait etre un compteur en dehors de write_vram car t'es en 1 octect par octect
         //Tous les deux octets correspond à une nouvelle ligne.
-        let row_index = (address % 16) / 2;
+        let row_index = (address % 16) / 2; //deux octets c'est récupérer deux value de la vram
+        //pareil ça devrait  etre un compteur
 
         //Boucle pour obtenir les 8 pixels qui composent une ligne donnée
         for pixel_index in 0..8 {
@@ -80,6 +84,60 @@ impl GPU {
             //Affecte la valeur du pixel dans le tableau de tuiles.
             self.tile_set[tile_index][row_index][pixel_index] = value;
         }
+    }
+
+    pub fn write_vram2(&mut self, memory : [u8; 0xFFFF+1]){
+        for i in 0..0x2000   {
+            self.vram[i] = memory[i+VRAM_START];
+        }
+    }
+
+    pub fn create_tile(&self) -> [[PixelColorVal; SCREEN_WIDTH as usize]; SCREEN_HEIGHT as usize] {
+        let mut screen_data = [[PixelColorVal::Zero; SCREEN_WIDTH as usize]; SCREEN_HEIGHT as usize];
+        let mut y = 0;
+        let mut tile_x = 1;
+        let mut tile_y= 1;
+        let tile_by_width = SCREEN_WIDTH/8;
+        let tile_by_height = SCREEN_HEIGHT/8;
+        let mut i = 0;
+
+        while tile_x<=tile_by_width&&tile_y<=tile_by_height{
+
+            //A la fin d'une tile, y est egale a 8*tile_y
+            if(8*tile_y)==y {
+                //on incremente tile_x pour passer a la tile suivante
+                tile_x+=1;
+                y=8*(tile_y-1);
+                //on verifie qu'on ne passe pas la taille de l'ecran
+                if tile_x >tile_by_width {
+                    //si on depasse l'ecran, on repasse tile_x a 1 et on increment tile_y
+                    tile_x = 1;
+                    tile_y += 1;
+                }
+            }
+
+
+            let value1 = self.vram[i];
+            let value2 = self.vram[i+1];
+
+            for j in 0..8 {
+                let value = ((value1>>j)&0x01)<<1|(value2>>j)&0x01;
+                let value_color = match value {
+                    0 => PixelColorVal::Zero ,
+                    1 => PixelColorVal::One,
+                    2 => PixelColorVal::Two,
+                    3 => PixelColorVal::Three,
+                    _ => panic!("pixel color val")
+                };
+              
+                 
+                screen_data[y as usize][((tile_x-1)*8+j) as usize] = value_color;
+            }
+            y+=1;
+
+            i+=2;
+        }
+        screen_data
     }
 
     //Récupère les données de l'écran et les renvoie sous forme de matrice de PixelColorVal

@@ -1,4 +1,6 @@
-use crate::gpu::screen::_screenTest;
+use gpu::gpu::GPU;
+
+use crate::gpu::screen::Emulator;
 
 pub mod cpu;
 pub mod gpu;
@@ -15,7 +17,7 @@ fn main() {
 
     let rom_path = "rom/Tetris.gb";
     let mut rom_data = Vec::new();
-    let mut cpu = CPU::new();
+    let mut emulator = Emulator::new();
     //Utilise File::open pour ouvrir le fichier ROM en mode lecture
     match File::open(rom_path) {
         Ok(mut file) => {
@@ -32,13 +34,34 @@ fn main() {
                     /*for (address, byte) in rom_data.iter().enumerate() {
                         //Utilise la fonction write_byte pour écrire dans la VRAM
                         memory_bus.write_byte((vram_start + address) as u16, *byte);
-                    }*/         
-                    cpu.bus.load_data(rom_data);  
+                    }*/  
+
+
+                   emulator.load_data(rom_data);
                    
-                    for i in 1..15 {
-                        cpu.step()
-                    };
-            
+
+                   emulator.gpu.vram[0x0] = 0x66; 
+                   emulator.gpu.vram[0x1] = 0x66; 
+                   
+                   emulator.gpu.vram[0x2] = 0x99; 
+                   emulator.gpu.vram[0x3] = 0x99; 
+                   
+                   emulator.gpu.vram[0x4] = 0x81; 
+                   emulator.gpu.vram[0x5] = 0x81;
+                   
+                   emulator.gpu.vram[0x6] = 0x42; 
+                   emulator.gpu.vram[0x7] = 0x42; 
+                   
+                   emulator.gpu.vram[0x8] = 0x24; 
+                   emulator.gpu.vram[0x9] = 0x24; 
+                   
+                   emulator.gpu.vram[0xA] = 0x18; 
+                   emulator.gpu.vram[0xB] = 0x18;
+                    
+
+
+                   emulator.screenTest();
+
                 }
                 Err(e) => {
                     eprintln!("Erreur lors de la lecture du fichier ROM : {}", e);
@@ -49,5 +72,4 @@ fn main() {
             eprintln!("Erreur lors de l'ouverture du fichier ROM : {}", e);
         }
     }
-   // _screenTest();
 }
