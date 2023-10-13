@@ -85,6 +85,10 @@ impl GPU {
 
             //Affecte la valeur du pixel dans le tableau de tuiles.
             self.tile_set[tile_index][row_index][pixel_index] = value;
+            
+            if tile_index == 0 {
+                print!("{} ", tile_index);
+            }
         }
 
         /*for i in 0 .. 8 {
@@ -198,7 +202,7 @@ impl<'a> MemoryBus<'a>{
                 self.gpu.write_vram(address , value)
             },
             LCDC_ADDR => self.lcdc.write_byte(value),
-            _ => {if address< 0x1000 {
+            _ => {if address< 0x1800 {
                 self.gpu.write_vram(address , value);
                 //print!("{}", value);
             }else {
