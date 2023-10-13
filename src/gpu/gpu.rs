@@ -163,7 +163,7 @@ impl GPU {
 
 pub struct MemoryBus<'a> {
     pub gpu: &'a mut GPU,
-    lcdc: LCDC
+    pub lcdc: LCDC
 }
 
 impl<'a> MemoryBus<'a>{
@@ -208,14 +208,14 @@ impl<'a> MemoryBus<'a>{
 }
 
 pub struct LCDC {
-    display_enable: bool,       // Bit 7
-    window_tile_map: usize,     // Bit 6
-    window_display_enable: bool, // Bit 5
-    bg_and_window_tile_data: usize, // Bit 4
-    bg_tile_map: usize,         // Bit 3
-    sprite_size: usize,         // Bit 2
-    sprite_display_enable: bool, // Bit 1
-    bg_display_enable: bool,    // Bit 0
+    pub display_enable: bool,       // Bit 7
+    pub window_tile_map: usize,     // Bit 6
+    pub window_display_enable: bool, // Bit 5
+    pub bg_and_window_tile_data: usize, // Bit 4
+    pub bg_tile_map: usize,         // Bit 3
+    pub sprite_size: usize,         // Bit 2
+    pub sprite_display_enable: bool, // Bit 1
+    pub bg_display_enable: bool,    // Bit 0
 }
 
 impl LCDC {

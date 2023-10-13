@@ -11,9 +11,9 @@ pub const SCALE_FACTOR: u32 = 5;
 
 pub struct GameBoy<'a> {
     //cpu: CPU,
-    gpu: &'a mut GPU,
+    pub gpu: &'a mut GPU,
     //memory_bus: MemoryBus,
-    screen_is_open: bool,
+    pub screen_is_open: bool,
 }
 
 impl<'a> GameBoy<'a> {

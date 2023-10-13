@@ -13,11 +13,13 @@ use std::io::Read;
 
 
 fn main() {
-
     let rom_path = "rom/Tetris.gb";
     let mut rom_data = Vec::new();
     let mut cpu = CPU::new();
     let mut gpu = GPU::new();
+
+    let mut gameboy = GameBoy::new(&mut gpu);
+
     //Utilise File::open pour ouvrir le fichier ROM en mode lecture
     match File::open(rom_path) {
         Ok(mut file) => {
@@ -25,7 +27,7 @@ fn main() {
             match file.read_to_end(&mut rom_data) {
                 Ok(_) => {
                     //Initialise le MemoryBus
-                    let mut memory_bus = MemoryBus::new(&mut gpu); 
+                    let mut memory_bus = MemoryBus::new(&mut gameboy.gpu); 
                     let vram_start = VRAM_START; // Définissez l'adresse de début de la VRAM.
 
                     //Pour chaque byte de la ROM écrit le dans la VRAM
@@ -75,8 +77,6 @@ fn main() {
             eprintln!("Erreur lors de l'ouverture du fichier ROM : {}", e);
         }
     }
-
-    let mut gameboy = GameBoy::new(&mut gpu);
 
     gameboy.run();
 
