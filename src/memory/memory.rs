@@ -149,7 +149,45 @@ impl MemoryBus {
             0xEFFF..=0xFDFF => {
                 self.memory[address - 0x2000] = value;
             },
-            _=> panic!("Adresse trop longue")
+            0xFF04 => { 
+                self.memory[0xFF04] = 0
+            },   
+            0xFF44  => { 
+                 self.memory[0xFF44] = 0
+            },
+            0xFF46  => { 
+                let start = (value as u16) << 8;
+                for i in 0..0xA0 {
+                    let copy_val = self.read_byte((start + i)as usize);
+                    self.write_byte((0xFE00 + i) as usize, copy_val);
+                }
+                return;
+            },   
+            0xFF4D  => { // Prepare speed switch
+                let curr_speed = self.memory[0xFF4D] & 0x80;
+                return self.memory[0xFF4D] = curr_speed | (value & 0x7F);
+            },   
+            0xFF4F  => { //VRAM bank
+                return self.memory[0xFF4F] = value & 1;
+            },          
+            0xFF69  => { //Background Palette Data
+                self.background_palette[(self.read_byte(0xFF68) & 0x3F) as usize] = value;
+                if (self.read_byte(0xFF68) >> 7) > 0 {
+                    let old_val = self.read_byte(0xFF68);
+                    self.write_byte(0xFF68, (old_val + 1) | (1 << 7));
+                }
+            },   
+            0xFF6B  => { //Sprite Palette Data 
+                self.sprite_palette[(self.read_byte(0xFF6A) & 0x3F) as usize] = value;
+                if (self.read_byte(0xFF6A) >> 7) > 0 {
+                    let old_val = self.read_byte(0xFF6A);
+                    self.write_byte(0xFF6A, (old_val + 1) | (1 << 7));
+                }
+            },
+            0xFF70  => { //select wram bank
+                self.wram_bank = if (value & 7) == 0 || true {1} else {value & 7};
+            }
+            _=> self.memory [address] = value, //a voir si c'est a mettre en dehors aussi
         }
 
     }

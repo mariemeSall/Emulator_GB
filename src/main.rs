@@ -18,7 +18,7 @@ fn main() {
             //Utilise la fonction read_to_end pour lire le contenu complet du fichier dans un vecteur de bytes
            
                     //Initialise le MemoryBus
-
+                gameboy.load_bios();
                 gameboy.load_game(&mut file);
                 gameboy.run();
 
