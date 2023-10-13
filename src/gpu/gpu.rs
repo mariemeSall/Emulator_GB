@@ -2,10 +2,14 @@ pub const VRAM_START: usize = 0x8000;   //première adresse consacrée aux tuile
 pub const VRAM_END: usize = 0x9FFF;     //dernière adresse consacrée aux tuiles
 pub const VRAM_SIZE: usize = VRAM_END - VRAM_START + 1;     //taille utilisée par les données des tuiles
 pub const LCDC_ADDR: usize = 0xFF40;    //addresse du lcdc
-use crate::gpu::screen::{SCREEN_WIDTH, SCREEN_HEIGHT};
-const VRAM_WIDTH: usize = SCREEN_WIDTH as usize;
+use crate::gpu::screen::SCALE_FACTOR;
 
-#[derive(Copy, Clone)]
+use sdl2::render::Canvas;
+use sdl2::pixels::Color;
+use sdl2::video::Window;
+use sdl2::rect::Rect;
+
+#[derive(Copy, Clone, Debug)]
 pub enum PixelColorVal{
     Zero,
     One,
@@ -23,9 +27,9 @@ pub fn black_tile() -> Tile{
 
 pub struct GPU{
     //video ram
-    vram: [u8; VRAM_SIZE],
-    tile_set: [Tile; 384],
-    lcdc: LCDC,
+    pub vram: [u8; VRAM_SIZE],
+    pub tile_set: [Tile; 384],
+    pub lcdc: LCDC,
 }
 
 impl GPU {
@@ -42,10 +46,7 @@ impl GPU {
     }
 
     pub fn write_vram(&mut self, address: usize, value: u8) {
-        //Si l'index de l'addresse est supérieur ou égal à 0x1800, nous n'écrivons pas dans le stockage des tuiles
-        if address >= 0x1800 {
-            return;
-        }
+        //print!("{: } ", value);
 
         //Écrit la valeur dans la mémoire VRAM à l'addresse 
         self.vram[address] = value;
@@ -60,6 +61,7 @@ impl GPU {
 
         //Une tuile mesure 16 octets au total
         let tile_index = address / 16;
+
         //Tous les deux octets correspond à une nouvelle ligne.
         let row_index = (address % 16) / 2;
 
@@ -83,43 +85,42 @@ impl GPU {
             //Affecte la valeur du pixel dans le tableau de tuiles.
             self.tile_set[tile_index][row_index][pixel_index] = value;
         }
+
+        /*for i in 0 .. 8 {
+            self.tile_set[tile_index][i][i] = PixelColorVal::Two;
+        }*/
     }
 
-    //Récupère les données de l'écran et les renvoie sous forme de matrice de PixelColorVal
-    pub fn get_screen_data(&self) -> [[PixelColorVal; SCREEN_WIDTH as usize]; SCREEN_HEIGHT as usize] {
-        let mut screen_data = [[PixelColorVal::Zero; SCREEN_WIDTH as usize]; SCREEN_HEIGHT as usize];
+    pub fn draw_tile_set(&mut self, canvas: &mut Canvas<Window>) {
+        // Loop a travers tile_set
+        for tile_index in 0..384 {
+            for row_index in 0..8 {
+                for pixel_index in 0..8 {
+                    // Determine la couleur du pixel selon la valeur
+                    let pixel_color = match self.tile_set[tile_index][row_index][pixel_index] {
+                        PixelColorVal::Zero => Color::BLACK,
+                        PixelColorVal::One => Color { r: 190, g: 190, b: 190, a: 255 }, // light grey
+                        PixelColorVal::Two => Color { r: 80, g: 80, b: 80, a: 255 }, // dark grey
+                        PixelColorVal::Three => Color::WHITE,
+                    };
 
-        // Les coordonnées de l'écran Game Boy vont de 0 à 159 (horizontalement) et de 0 à 143 (verticalement).
-        for y in 0..SCREEN_HEIGHT as usize {
-            for x in 0..SCREEN_WIDTH as usize {
-                // Calculez l'adresse dans la VRAM en fonction des coordonnées de l'écran.
-                let tile_x = x / 8;
-                let tile_y = y / 8;
-                let tile_offset = (tile_y * (VRAM_WIDTH / 8) + tile_x) * 16; // Chaque tuile fait 16 octets (8x8 pixels).
+                    // Calcule les coordonnées pour dessiner le pixel
+                    let x = (tile_index % 20) * 8 + pixel_index;
+                    let y = (tile_index / 20) * 8 + row_index;
 
-                // Obtenez les valeurs des pixels à partir de la VRAM.
-                let row_within_tile = y % 8;
-                let pixel_within_tile = x % 8;
-
-                let lsb_byte = self.vram[tile_offset + (row_within_tile * 2)];
-                let msb_byte = self.vram[tile_offset + (row_within_tile * 2) + 1];
-
-                let lsb_bit = (lsb_byte >> (7 - pixel_within_tile)) & 0x01;
-                let msb_bit = (msb_byte >> (7 - pixel_within_tile)) & 0x01;
-
-                // Calculez la valeur du pixel en fonction des bits LSB et MSB.
-                let pixel_value = match (msb_bit, lsb_bit) {
-                    (0, 0) => PixelColorVal::Zero,
-                    (0, 1) => PixelColorVal::One,
-                    (1, 0) => PixelColorVal::Two,
-                    (1, 1) => PixelColorVal::Three,
-                    _ => panic!("Invalid pixel value"), // Gérez les erreurs au besoin.
-                };
-
-                screen_data[y][x] = pixel_value;
+                    //Dessine le pixel sur le canvas
+                    canvas.set_draw_color(pixel_color);
+                    canvas
+                        .fill_rect(Rect::new(
+                            (x as i32) * SCALE_FACTOR as i32,
+                            (y as i32) * SCALE_FACTOR as i32,
+                            SCALE_FACTOR as u32,
+                            SCALE_FACTOR as u32,
+                        ))
+                        .expect("Failed to draw pixel.");
+                }
             }
         }
-        screen_data
     }
 
     fn majAffichage(&mut self) {
@@ -160,15 +161,15 @@ impl GPU {
 
 }
 
-pub struct MemoryBus {
-    gpu: GPU,
+pub struct MemoryBus<'a> {
+    pub gpu: &'a mut GPU,
     lcdc: LCDC
 }
 
-impl MemoryBus{
-    pub fn new() -> Self {
+impl<'a> MemoryBus<'a>{
+    pub fn new( gpu : &'a mut GPU) -> Self {
         MemoryBus { 
-            gpu: GPU::new(),
+            gpu: gpu,
             lcdc: LCDC::new(),
         }
     }
@@ -181,7 +182,7 @@ impl MemoryBus{
         match address{
             //Video RAM
             VRAM_START ..= VRAM_END => {
-                self.gpu.read_vram(address - VRAM_START)
+                self.gpu.read_vram(address)
             },
             LCDC_ADDR => self.lcdc.read_byte(),
             _ => 0x00,//panic!("TODO: support others areas of the memory")
@@ -190,12 +191,18 @@ impl MemoryBus{
 
     pub fn write_byte(&mut self, address: u16, value : u8){
         let address = address as usize;
+
         match address {
             VRAM_START ..= VRAM_END => {
-                self.gpu.write_vram(address - VRAM_START, value)
+                self.gpu.write_vram(address , value)
             },
             LCDC_ADDR => self.lcdc.write_byte(value),
-            _ => {}//panic!("TODO: support others areas of the memory")
+            _ => {if address< 0x1000 {
+                self.gpu.write_vram(address , value);
+                //print!("{}", value);
+            }else {
+                    
+                }}//panic!("TODO: support others areas of the memory")
         }
     }
 }

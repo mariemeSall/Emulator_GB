@@ -1,32 +1,28 @@
 extern crate sdl2;
-use crate::cpu::cpu::{CPU, MemoryBus};
-use super::gpu::{GPU, PixelColorVal, PixelColorVal::Zero, PixelColorVal::One, PixelColorVal::Two, PixelColorVal::Three};
+use super::gpu::GPU;
 
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
-use sdl2::pixels::Color;
-use sdl2::rect::Rect;
-use sdl2::render::Canvas;
-use sdl2::video::Window;
-use sdl2::EventPump;
 use std::time::Duration;
 
 pub const SCREEN_WIDTH: u32 = 160;
 pub const SCREEN_HEIGHT: u32 = 144;
-pub const SCALE_FACTOR: u32 = 4;
+pub const SCALE_FACTOR: u32 = 5;
 
-pub struct GameBoy {
+pub struct GameBoy<'a> {
     //cpu: CPU,
-    gpu: GPU,
+    gpu: &'a mut GPU,
     //memory_bus: MemoryBus,
+    screen_is_open: bool,
 }
 
-impl GameBoy {
-    pub fn new() -> Self {
+impl<'a> GameBoy<'a> {
+    pub fn new(gpu : &'a mut GPU) -> Self {
         GameBoy {
             //cpu: CPU::new(),
-            gpu: GPU::new(),
+            gpu: gpu,
             //memory_bus: MemoryBus::new(),
+            screen_is_open: false,
         }
     }
     pub fn step(&mut self) {
@@ -36,91 +32,53 @@ impl GameBoy {
         //self.gpu.step();
     }
 
-    pub fn get_screen_data(&self) -> [[PixelColorVal; SCREEN_WIDTH as usize]; SCREEN_HEIGHT as usize] {
-        self.gpu.get_screen_data()
-    }
-
-    // Implémentez les fonctions nécessaires pour faire fonctionner l'émulateur
-    // Gérer la mise à jour de l'écran ici
-}
-
-pub struct Screen {
-    canvas: sdl2::render::Canvas<sdl2::video::Window>,
-    event_pump: sdl2::EventPump,
-}
-
-impl Screen {
-    pub fn new(
-        sdl_context: &sdl2::Sdl,
-        scale_factor: u32,
-        screen_width: u32,
-        screen_height: u32,
-    ) -> Screen {
+    pub fn run(&mut self) {
+        let sdl_context = sdl2::init().unwrap();
         let video_subsystem = sdl_context.video().unwrap();
         let window = video_subsystem
-            .window("Game Boy Emulator", screen_width * scale_factor, screen_height * scale_factor)
+            .window("Game Boy Emulator", SCREEN_WIDTH * SCALE_FACTOR, SCREEN_HEIGHT * SCALE_FACTOR)
             .position_centered()
             .build()
             .unwrap();
-        let canvas = window.into_canvas().build().unwrap();
-        let event_pump = sdl_context.event_pump().unwrap();
-
-        Screen { 
-            canvas, event_pump 
-        }
-    }
-
-    pub fn run(&mut self, gameboy: &mut GameBoy, scale_factor: u32) {
+        let mut canvas = window.into_canvas().build().unwrap();
+        let mut event_pump = sdl_context.event_pump().unwrap();
+        self.screen_is_open = true;
+        
         'running: loop {
-            for event in self.event_pump.poll_iter() {
+            for event in event_pump.poll_iter() {
                 match event {
-                    Event::Quit { .. } => break 'running,
+                    Event::Quit { .. } => {
+                        self.screen_is_open = false; // Ferme la fenêtre
+                        break 'running;
+                    }
                     Event::KeyDown {
                         keycode: Some(Keycode::Escape),
                         ..
-                    } => break 'running,
+                    } => {
+                        self.screen_is_open = false; // Ferme la fenêtre
+                        break 'running;
+                    }
                     _ => {}
                 }
             }
 
-            gameboy.step();
-
-            let screen_data = gameboy.get_screen_data();
-
-            for y in 0..SCREEN_HEIGHT as usize {
-                for x in 0..SCREEN_WIDTH as usize {
-                    let pixel_color = screen_data[y][x];
-                    let color = match pixel_color {
-                        PixelColorVal::Zero => Color::BLACK,
-                        PixelColorVal::One => Color {
-                            r: 190,
-                            g: 190,
-                            b: 190,
-                            a: 255,
-                        }, //light grey
-                        PixelColorVal::Two => Color {
-                            r: 80,
-                            g: 80,
-                            b: 80,
-                            a: 255,
-                        }, //dark grey
-                        PixelColorVal::Three => Color::WHITE,
-                    };
-                    self.canvas.set_draw_color(color);
-                    self.canvas
-                        .fill_rect(Rect::new(
-                            (x as u32 * scale_factor) as i32,
-                            (y as u32 * scale_factor) as i32,
-                            scale_factor,
-                            scale_factor,
-                        ))
-                        .expect("Failed to draw pixel.");
-                }
+            if !(self.screen_is_open) {
+                break 'running; //Sort de la boucle si la fenêtre est fermée
             }
 
-            self.canvas.present();
+            canvas.present();
+
+            // Obtenez les données du tile_set depuis le GPU.
+            let tile_set = &self.gpu.tile_set;
+
+            // Met à jour l'affichage sur l'écran SDL2
+            self.gpu.draw_tile_set(&mut canvas);
 
             std::thread::sleep(Duration::new(0, 1_000_000_000 / 60));
         }
     }
+
+    /*pub fn get_screen_data(&self) -> [[PixelColorVal; SCREEN_WIDTH as usize]; SCREEN_HEIGHT as usize] {
+        self.gpu.get_screen_data()
+    }*/
 }
