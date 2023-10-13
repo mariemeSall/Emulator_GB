@@ -20,6 +20,7 @@ fn main() {
                     //Initialise le MemoryBus
                 gameboy.load_bios();
                 gameboy.load_game(&mut file);
+
                 gameboy.run();
 
               

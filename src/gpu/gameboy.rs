@@ -1,5 +1,6 @@
 extern crate sdl2;
 use crate::cpu::cpu::CPU;
+use crate::gpu::gpu::VRAM_START;
 use crate::memory::memory::MemoryBus;
 
 use super::gpu::{GPU, PixelColorVal};
@@ -75,7 +76,7 @@ impl GameBoy {
             if !(self.screen_is_open) {
                 break 'running; //Sort de la boucle si la fenêtre est fermée
             }
-            self.cpu.step(&mut self.memory_bus);
+            //self.cpu.step(&mut self.memory_bus);
             self.gpu.generate_tile_set(&mut self.memory_bus);
 
             // Met à jour l'affichage sur l'écran SDL2
@@ -136,8 +137,15 @@ impl GameBoy {
             _=> println!("The cartridge type is NOT IMPLEMENTED"),
         }
 
+        let mut logo = [0;48];
+        for i in 0..48 {
+            let value = header[0x0104 +i];
+            logo[i]  = value;
+        }
+
+
         self.memory_bus.load_data(game_file);
-        self.gpu.generate_tile_set(&mut self.memory_bus);
+        self.memory_bus.vram = self.get_logo(logo);
 		let rom_size = header[0x148] ;
         let rom_actual = 32 * (1<<rom_size);
 
@@ -148,7 +156,52 @@ impl GameBoy {
         println!("RAM size : {:}", ram_size);
     }
 
+    fn get_logo(&self, logo: [u8; 48])-> [u8; 0x4000]{
+        let mut logo_complet = [0; 0x4000];
+        let mut vec = Vec::<u8>::new();
+
+        let mut i=0;
+        for j in 0..696 {
+            vec.push(0);
+        }
+
+        while i<24 {
+           
+            vec.push( logo[i]&0xF0|((logo[i+2]&0xF0)>>4));
+            vec.push( ((logo[i]&0xF)<<4)|(logo[i+2]&0xF));
+            vec.push( logo[i+1]&0xF0|((logo[i+3]&0xF0)>>4));
+            vec.push( ((logo[i+1]&0xF)<<4)|(logo[i+3]&0xF));
+            vec.push( logo[24+i]&0xF0|((logo[26+i]&0xF0)>>4));
+            vec.push(((logo[24+i]&0xF)<<4)|(logo[26+i]&0xF));
+            vec.push( logo[25+i]&0xF0|((logo[27+i]&0xF0)>>4));
+            vec.push( ((logo[25+i]&0xF)<<4)|(logo[27+i]&0xF));
+
+
+            i+=4;
+        }
+
+        i = 0;
+        for bit in vec {
+            logo_complet[i] = bit;
+            logo_complet[i+1] = bit;
+
+            i+=2;
+        }
+
+        logo_complet
+    }
+   
     pub fn load_bios(&mut self){
+       
+
+        self.cpu.resgiters.set_af(0x190);
+        self.cpu.resgiters.set_bc(0x13);
+        self.cpu.resgiters.set_de(0xD8);
+        self.cpu.resgiters.set_hl(0x14D);
+
+        self.cpu.sp = 0xFFFE;
+        self.cpu.pc = 0x0100;
+
         self.memory_bus.write_byte(0xFF05, 0x00);
         self.memory_bus.write_byte(0xFF06, 0x00);
         self.memory_bus.write_byte(0xFF07, 0x00);

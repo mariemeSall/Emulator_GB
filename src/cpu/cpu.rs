@@ -666,7 +666,7 @@ impl CPU {
             ime: true,
             resgiters : Resgisters::new(),
             sp: 0xFFFE,
-            pc:  0x0100,
+            pc:  0x0000,
         }
     }
 
