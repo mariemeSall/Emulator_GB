@@ -4,6 +4,7 @@ pub const VRAM_SIZE: usize = VRAM_END - VRAM_START + 1;     //taille utilisée p
 pub const LCDC_ADDR: usize = 0xFF40;    //addresse du lcdc
 
 use crate::gpu::gameboy::SCALE_FACTOR;
+use crate::memory::memory::MemoryBus;
 
 use sdl2::render::Canvas;
 use sdl2::pixels::Color;
@@ -28,43 +29,41 @@ pub fn black_tile() -> Tile{
 
 pub struct GPU{
     //video ram
-    pub vram: [u8; VRAM_SIZE],
     pub tile_set: [Tile; 384],
-    pub lcdc: LCDC,
 }
 
 impl GPU {
     pub fn new() -> Self {
         GPU {
-            vram: [0; VRAM_SIZE],
             tile_set: [black_tile(); 384],
-            lcdc: LCDC::new(),
         }
     }
 
-    pub fn read_vram(&self, address: usize) -> u8{
-        self.vram[address]
+    pub fn generate_tile_set(&mut self, memory : &mut MemoryBus) {
+
+        for i in VRAM_START..=VRAM_END {
+            self.write_vram(memory, i)
+        }
     }
-
-    pub fn write_vram(&mut self, address: usize, value: u8) {
-        //print!("{: } ", value);
-
-        //Écrit la valeur dans la mémoire VRAM à l'addresse 
-        self.vram[address] = value;
+   
+    pub fn write_vram(&mut self,  memory: &mut MemoryBus, address: usize) {
+        if address-VRAM_START >= 1800 {
+            return;
+        }
 
         //Une ligne de tuiles est encodée sur deux 2 bytes, le premier octet est toujours une adresse paire
         //En utilisant un & avec 0xFFFE, on obtient l'adresse du premier octet
         let normalized_index = address & 0xFFFE;
 
         //Les 2 bytes de la ligne de tuiles
-        let byte1 = self.vram[normalized_index];
-        let byte2 = self.vram[normalized_index + 1];
+        let byte1 = memory.read_vram(normalized_index , false);
+        let byte2 = memory.read_vram(normalized_index + 1, false);
 
         //Une tuile mesure 16 octets au total
-        let tile_index = address / 16;
+        let tile_index = (address-VRAM_START) / 16;
 
         //Tous les deux octets correspond à une nouvelle ligne.
-        let row_index = (address % 16) / 2;
+        let row_index = ((address-VRAM_START) % 16) / 2;
 
         //Boucle pour obtenir les 8 pixels qui composent une ligne donnée
         for pixel_index in 0..8 {
@@ -86,9 +85,6 @@ impl GPU {
             //Affecte la valeur du pixel dans le tableau de tuiles.
             self.tile_set[tile_index][row_index][pixel_index] = value;
             
-            if tile_index == 0 {
-                print!("{} ", tile_index);
-            }
         }
 
         /*for i in 0 .. 8 {
@@ -128,7 +124,7 @@ impl GPU {
         }
     }
 
-    fn majAffichage(&mut self) {
+   /*  fn majAffichage(&mut self) {
         if self.lcdc.display_enable {
             //Affiche le contenu à l'écran en fonction des réglages du LCDC
             if self.lcdc.bg_display_enable {
@@ -163,10 +159,10 @@ impl GPU {
             }
         }
     }
-
+ */
 }
 
-pub struct MemoryBus<'a> {
+/* pub struct MemoryBus<'a> {
     pub gpu: &'a mut GPU,
     pub lcdc: LCDC
 }
@@ -327,4 +323,4 @@ impl LCDC {
     }
     
 }
-    
+     */
