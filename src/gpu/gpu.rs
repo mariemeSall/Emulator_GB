@@ -1,7 +1,19 @@
 pub const VRAM_START: usize = 0x8000;   //première adresse consacrée aux tuiles
 pub const VRAM_END: usize = 0x9FFF;     //dernière adresse consacrée aux tuiles
 pub const VRAM_SIZE: usize = VRAM_END - VRAM_START + 1;     //taille utilisée par les données des tuiles
-pub const LCDC_ADDR: usize = 0xFF40;    //addresse du lcdc
+pub const LCDC_ADDR: usize = 0xFF40;  
+//addresse du lcdc
+pub const OAM: usize = 0xFE00; //première adresse de l'OAM
+pub const LINE: usize = 0xFF44; //adresse de la ligne à dessiner
+pub const SCROLLX: usize = 0xFF43;
+pub const SCROLLY: usize = 0xFF42;
+pub const WINDOWX: usize = 0xFF4B;
+pub const WINDOWY: usize = 0xFF4A;
+pub const LCDC:usize = 0xFF40;
+pub const BGP: usize = 0xFF47;
+pub const OBP0: usize = 0xFF48;
+pub const OBP1: usize = 0xFF49;
+
 
 use crate::gpu::gameboy::SCALE_FACTOR;
 use crate::memory::memory::MemoryBus;
@@ -28,14 +40,19 @@ pub fn black_tile() -> Tile{
 }
 
 pub struct GPU{
-    //video ram
     pub tile_set: [Tile; 384],
+    pub screen: [[PixelColorVal; 160];144],
+    pub bg: [[u8;160];144],
+    pub lcdc: LCDC,
 }
 
 impl GPU {
     pub fn new() -> Self {
         GPU {
             tile_set: [black_tile(); 384],
+            screen: [[PixelColorVal::Zero;160];144],
+            bg: [[0; 160]; 144],
+            lcdc: LCDC::new(),
         }
     }
 
@@ -124,6 +141,139 @@ impl GPU {
         }
     }
 
+    pub fn draw_tiles(&mut self, memory : &mut MemoryBus){
+        self.lcdc.write(memory.read_byte(LCDC));
+        let line = memory.read_byte(LINE);
+        let scroll_x = memory.read_byte(SCROLLX);
+        let scroll_y = memory.read_byte(SCROLLY);
+
+        let window_x = memory.read_byte(WINDOWX).wrapping_sub(7);
+        let window_y = memory.read_byte(WINDOWY);
+
+        let background_map_range = if self.lcdc.bg_tile_map {0x9C00}else{0x9800};
+        let window_map_range = if self.lcdc.window_tile_map {0x9C00}else{0x9800};
+        let bw_tile_data_range = if self.lcdc.bg_display_enable {0x8000}else{0x8800};
+        let using_window = self.lcdc.window_display_enable && window_y<=line;
+        let background = if using_window {window_map_range} else {background_map_range};
+
+        if !using_window && !self.lcdc.bg_display_enable {
+            self.bg_prio_zero(line as usize);
+        }
+
+        let y_offset = if using_window { line - window_y} else { scroll_y.wrapping_add(line)};
+
+        let tile_row = y_offset/8;
+
+        for x in 0..160u8 {
+            let mut x_offset = x.wrapping_add(scroll_x);
+			if using_window && x >= window_x {
+				x_offset = x - window_x;
+			}
+
+            let tile_col = x_offset/8;
+
+            let address = background + (tile_row as u16)*32 + (tile_col as u16);
+
+            let tile = if self.lcdc.bg_display_enable {
+				bw_tile_data_range + (memory.read_vram(address as usize, false) as u16)*16
+            } else {
+				bw_tile_data_range + ((memory.read_vram(address as usize, false)as i8 as i16 +128 )as u16)*16
+            };
+
+            let tile_line = (y_offset%8 )as u16;
+
+            let address = (tile + tile_line*2) as usize;
+
+            let lsb = memory.read_byte(address);
+            let msb = memory.read_byte(address+1);
+
+            let i = 7-x_offset%8;
+
+            let value = if i ==0 {
+               (lsb&1)|(msb&1<<1)
+            } else {
+                ((lsb&(1<<i))>>i) | ((msb&(1<<i))>>(i-1)) 
+            };
+
+            self.bg[line as usize][x as usize] = value<<1;
+
+            self.screen[line as usize][x as usize] = self.color(value, BGP)
+
+
+
+
+
+
+
+
+        }
+
+    }
+
+
+    pub fn draw_objects(&mut self, memory : &mut MemoryBus){
+        self.lcdc.write(memory.read_byte(LCDC));
+
+        for object in 0..40 {
+            //Dans l'OAM chaque objet utilise 4 octets
+            let offset = object*4;
+
+            let x = memory.read_byte(OAM+offset+1).wrapping_sub(8);
+            let y = memory.read_byte(OAM+offset).wrapping_sub(16);
+
+            let tile_index = memory.read_byte(OAM+offset+2);
+            let attributes = Attributes::new(memory.read_byte(OAM+offset+3));
+
+            let line = memory.read_byte(LINE);
+
+            let object_lenght = if self.lcdc.sprite_size {16} else {8};
+
+            if y <=line &&line< y+object_lenght {
+
+                let object_line = if attributes.y_flip{object_lenght+y - line -1}else {line - y};
+                let address = VRAM_START + (tile_index as usize) *16 + (object_line as usize)*2;
+
+                let lsb = memory.read_byte(address);
+                let msb = memory.read_byte(address+1);
+
+                for i in 0..8 {
+                    //Correspondance des valeurs des bits et des couleurs
+                    let value = if i ==0 {
+                        (lsb&1)|(msb&1<<1)
+                     } else {
+                         ((lsb&(1<<i))>>i) | ((msb&(1<<i))>>(i-1)) 
+                     };
+                  
+         
+                    let pixel = if attributes.x_flip {
+                        x.wrapping_add(i)
+                    } else {
+                        x.wrapping_add(7-i)
+                    };
+
+                    let line =line as usize;
+                    let pixel = pixel as usize;
+
+
+                    let palette = if attributes.dmg_pallette {OBP1}else {OBP0};
+                    if pixel<160 && !self.bg_prio( line, pixel, attributes.priority){
+                        self.screen[line][pixel] = self.color(value, palette);
+                    }
+
+                }
+
+            }
+
+        }
+
+    }
+
+
+    fn bg_prio(&self, line: usize, pixel: usize, priority: bool)-> bool{
+        self.lcdc.bg_display_enable && (self.bg[line][pixel] & 1 !=0 || priority) && (self.bg[line][pixel]>1)
+
+    }
+
    /*  fn majAffichage(&mut self) {
         if self.lcdc.display_enable {
             //Affiche le contenu à l'écran en fonction des réglages du LCDC
@@ -162,59 +312,34 @@ impl GPU {
  */
 }
 
-/* pub struct MemoryBus<'a> {
-    pub gpu: &'a mut GPU,
-    pub lcdc: LCDC
+pub struct Attributes {
+
+    pub priority : bool,
+    pub y_flip: bool,
+    pub x_flip: bool,
+    pub dmg_pallette: bool,
 }
 
-impl<'a> MemoryBus<'a>{
-    pub fn new( gpu : &'a mut GPU) -> Self {
-        MemoryBus { 
-            gpu: gpu,
-            lcdc: LCDC::new(),
+
+impl Attributes {
+    pub fn new(value: u8)-> Self {
+        Attributes { 
+            priority: (value&0x80>0), 
+            y_flip: (value&0x40>0), 
+            x_flip: (value&0x20>0), 
+            dmg_pallette: (value&0x10>0),
         }
+
     }
 
-    //Lit un byte à partir d'une adresse donnée
-    pub fn read_byte(&self, address: u16) -> u8 {
-        //Convertie en usize pour le match
-        let address = address as usize;
-        //Lit le byte différemment selon son emplacement mémoire
-        match address{
-            //Video RAM
-            VRAM_START ..= VRAM_END => {
-                self.gpu.read_vram(address)
-            },
-            LCDC_ADDR => self.lcdc.read_byte(),
-            _ => 0x00,//panic!("TODO: support others areas of the memory")
-        }
-    }
-
-    pub fn write_byte(&mut self, address: u16, value : u8){
-        let address = address as usize;
-
-        match address {
-            VRAM_START ..= VRAM_END => {
-                self.gpu.write_vram(address , value)
-            },
-            LCDC_ADDR => self.lcdc.write_byte(value),
-            _ => {if address< 0x1800 {
-                self.gpu.write_vram(address , value);
-                //print!("{}", value);
-            }else {
-                    
-                }}//panic!("TODO: support others areas of the memory")
-        }
-    }
 }
-
 pub struct LCDC {
     pub display_enable: bool,       // Bit 7
-    pub window_tile_map: usize,     // Bit 6
+    pub window_tile_map: bool,     // Bit 6
     pub window_display_enable: bool, // Bit 5
-    pub bg_and_window_tile_data: usize, // Bit 4
-    pub bg_tile_map: usize,         // Bit 3
-    pub sprite_size: usize,         // Bit 2
+    pub bg_and_window_tile_data: bool, // Bit 4
+    pub bg_tile_map: bool,         // Bit 3
+    pub sprite_size: bool,         // Bit 2
     pub sprite_display_enable: bool, // Bit 1
     pub bg_display_enable: bool,    // Bit 0
 }
@@ -223,11 +348,11 @@ impl LCDC {
     pub fn new() -> Self{
         LCDC { 
             display_enable: false,
-            window_tile_map: 0,
+            window_tile_map: false,
             window_display_enable: false,
-            bg_and_window_tile_data: 0,
-            bg_tile_map: 0,
-            sprite_size: 0,
+            bg_and_window_tile_data: false,
+            bg_tile_map: false,
+            sprite_size: false,
             sprite_display_enable: false,
             bg_display_enable: false,
         }
@@ -288,14 +413,14 @@ impl LCDC {
         result
     }
     
-    pub fn write_byte(&mut self, value: u8) {
+    pub fn write(&mut self, value: u8) {
         //Bit 7 : Display Enable
         //Récupère le bit 7 de la valeur entrée, change la valeur de display_enable
         self.display_enable = (value & 0x80) != 0;
     
         //Bit 6 : Window Tile Map Display Select
         //Le bit 6 est extrait de la valeur entrée et mis dans window_tile_map
-        self.window_tile_map = ((value >> 6) & 0x01) as usize;
+        self.window_tile_map = (value & 0x40) != 0;
     
         //Bit 5 : Window Display Enable
         //Récupère le bit 5 de la valeur entrée, change la valeur de window_display_enable
@@ -303,15 +428,15 @@ impl LCDC {
     
         //Bit 4 : BG and Window Tile Data Select
         //Le bit 4 est extrait de la valeur entrée et mis dans bg_and_window_tile_data
-        self.bg_and_window_tile_data = ((value >> 4) & 0x01) as usize;
+        self.bg_and_window_tile_data = (value & 0x10) != 0;
     
         //Bit 3 : BG Tile Map Display Select
         //Le bit 3 est extrait de la valeur entrée et mis dans bg_tile_map
-        self.bg_tile_map = ((value >> 3) & 0x01) as usize;
+        self.bg_tile_map = (value & 0x08) != 0;
     
         //Bit 2 : Sprite Size
         //Le bit 2 est extrait de la valeur entrée et mis dans sprite_size
-        self.sprite_size = ((value >> 2) & 0x01) as usize;
+        self.sprite_size = (value & 0x04) != 0;
     
         //Bit 1 : Sprite Display Enable
         //Récupère le bit 1 de la valeur entrée, change la valeur de sprite_display_enable
@@ -323,4 +448,3 @@ impl LCDC {
     }
     
 }
-     */
