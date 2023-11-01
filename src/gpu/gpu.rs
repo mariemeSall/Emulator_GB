@@ -31,6 +31,22 @@ pub enum PixelColorVal{
     Three,
 }
 
+impl PixelColorVal {
+    pub fn color(value:u8, mode: u8)->PixelColorVal{
+        let (hi, lo) = (2*value+1, 2*value);
+		let color = ((mode & (1 << hi)) >> (hi-1)) | ((mode & (1 << lo)) >> lo);  
+        match color {
+            3 => PixelColorVal::Three,
+            2 => PixelColorVal::Two,
+            1 => PixelColorVal::One,
+            0 => PixelColorVal::Zero,
+            _=> panic!("Invalid color input")
+        }
+
+
+    }
+}
+
 //tableau de 8x8 pour une tuile
 type Tile = [[PixelColorVal; 8]; 8 ];
 
@@ -53,6 +69,23 @@ impl GPU {
             screen: [[PixelColorVal::Zero;160];144],
             bg: [[0; 160]; 144],
             lcdc: LCDC::new(),
+        }
+    }
+
+    pub fn step(&mut self, memory : &mut MemoryBus ){
+        //Passe à la ligne suivante en wrappant la valeur
+        let line = (memory.read_byte(LINE)+1)%154;
+        memory.write_byte(LINE, line);
+        //update le lcdc 
+        self.lcdc.write(memory.read_byte(LCDC));
+
+        //Si la ligne est incluse dans l'affichage (<144), on la dessine
+        if line<144 {
+            self.draw_tiles(memory);
+            //Si le lcdc autorise les objets, on dessine les objets
+            if self.lcdc.sprite_display_enable {
+                self.draw_objects(memory);
+            }
         }
     }
 
@@ -151,13 +184,16 @@ impl GPU {
         let window_y = memory.read_byte(WINDOWY);
 
         let background_map_range = if self.lcdc.bg_tile_map {0x9C00}else{0x9800};
+        println!("background {:04x}", background_map_range);
         let window_map_range = if self.lcdc.window_tile_map {0x9C00}else{0x9800};
+        println!("windwow {:04x}", window_map_range);
         let bw_tile_data_range = if self.lcdc.bg_display_enable {0x8000}else{0x8800};
         let using_window = self.lcdc.window_display_enable && window_y<=line;
         let background = if using_window {window_map_range} else {background_map_range};
 
         if !using_window && !self.lcdc.bg_display_enable {
             self.bg_prio_zero(line as usize);
+            return;
         }
 
         let y_offset = if using_window { line - window_y} else { scroll_y.wrapping_add(line)};
@@ -197,14 +233,7 @@ impl GPU {
 
             self.bg[line as usize][x as usize] = value<<1;
 
-            self.screen[line as usize][x as usize] = self.color(value, BGP)
-
-
-
-
-
-
-
+            self.screen[line as usize][x as usize] = PixelColorVal::color(value, memory.read_byte(BGP));
 
         }
 
@@ -257,7 +286,7 @@ impl GPU {
 
                     let palette = if attributes.dmg_pallette {OBP1}else {OBP0};
                     if pixel<160 && !self.bg_prio( line, pixel, attributes.priority){
-                        self.screen[line][pixel] = self.color(value, palette);
+                        self.screen[line][pixel] = PixelColorVal::color(value, memory.read_byte(palette));
                     }
 
                 }
@@ -273,6 +302,13 @@ impl GPU {
         self.lcdc.bg_display_enable && (self.bg[line][pixel] & 1 !=0 || priority) && (self.bg[line][pixel]>1)
 
     }
+
+    fn bg_prio_zero(&mut self, line: usize){
+        for pixel in 0..160u8 {
+            self.bg[line as usize][pixel as usize] = 0;
+        }
+    }
+
 
    /*  fn majAffichage(&mut self) {
         if self.lcdc.display_enable {
@@ -356,61 +392,6 @@ impl LCDC {
             sprite_display_enable: false,
             bg_display_enable: false,
         }
-    }
-
-    pub fn read_byte(&self) -> u8 {
-        let mut result: u8 = 0;
-    
-        //Bit 7 : Display Enable
-        //Si display_enable est vrai, le bit 7 est mis à 1, sinon il reste à 0
-        if self.display_enable {
-            result |= 0x80;
-        } else {
-            result &= !0x80;
-        }
-    
-        //Bit 6 : Window Tile Map Display Select
-        //Les bits de l'octet 6 sont copiés depuis window_tile_map
-        result |= (self.window_tile_map as u8) << 6;
-    
-        // Bit 5 : Window Display Enable
-        //Si window_display_enable est vrai le bit 5 est mis à 1, sinon il reste à 0
-        if self.window_display_enable {
-            result |= 0x20;
-        } else {
-            result &= !0x20;
-        }
-    
-        //Bit 4 : BG and Window Tile Data Select
-        //Les bits de l'octet 4 sont copiés depuis bg_and_window_tile_data
-        result |= (self.bg_and_window_tile_data as u8) << 4;
-    
-        //Bit 3 : BG Tile Map Display Select
-        //Les bits l'octet 3 sont copiés depuis bg_tile_map
-        result |= (self.bg_tile_map as u8) << 3;
-    
-        //Bit 2 : Sprite Size
-        //Les bits de l'octet 2 sont copiés depuis sprite_size
-        result |= (self.sprite_size as u8) << 2;
-    
-        //Bit 1 : Sprite Display Enable
-        //Si sprite_display_enable est vrai le bit 1 est mis à 1, sinon il reste à 0
-        if self.sprite_display_enable {
-            result |= 0x02;
-        } else {
-            result &= !0x02;
-        }
-    
-        //Bit 0 : BG Display Enable
-        //Si bg_display_enable est vrai le bit 0 est mis à 1, sinon il reste à 0
-        if self.bg_display_enable {
-            result |= 0x01;
-        } else {
-            result &= !0x01;
-        }
-    
-        //La valeur finale du lcdc est renvoyée
-        result
     }
     
     pub fn write(&mut self, value: u8) {

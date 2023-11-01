@@ -39,8 +39,8 @@ impl GameBoy {
     pub fn step(&mut self) {
         // Exécutez une étape de l'émulateur ici
         // Par exemple, vous pouvez mettre à jour le CPU, le GPU, la mémoire, etc
-        //self.cpu.step();
-        //self.gpu.step();
+        self.gpu.step(&mut self.memory_bus);
+        self.cpu.step(&mut self.memory_bus);
     }
 
     pub fn run(&mut self) {
@@ -76,15 +76,43 @@ impl GameBoy {
             if !(self.screen_is_open) {
                 break 'running; //Sort de la boucle si la fenêtre est fermée
             }
-            //self.cpu.step(&mut self.memory_bus);
-            self.gpu.generate_tile_set(&mut self.memory_bus);
+            
+
+            self.step();
 
             // Met à jour l'affichage sur l'écran SDL2
-            self.draw_tile_set(&mut canvas);
+            self.draw_screen(&mut canvas);
             canvas.present();
 
             std::thread::sleep(Duration::new(0, 1_000_000_000 / 60));
         }
+    }
+
+
+    fn draw_screen(&mut self, canvas: &mut Canvas<Window>){
+        let screen = self.gpu.screen;
+        for pixel_y in 0..144 {
+            for pixel_x in 0..160 {
+                let pixel_color = match screen[pixel_y][pixel_x] {
+                    PixelColorVal::Zero => Color::BLACK,
+                    PixelColorVal::One => Color { r: 190, g: 190, b: 190, a: 255 }, // light grey
+                    PixelColorVal::Two => Color { r: 80, g: 80, b: 80, a: 255 }, // dark grey
+                    PixelColorVal::Three => Color::WHITE,
+                };
+                 //Dessine le pixel sur le canvas
+                 canvas.set_draw_color(pixel_color);
+                 canvas
+                     .fill_rect(Rect::new(
+                         (pixel_x as i32) * SCALE_FACTOR as i32,
+                         (pixel_y as i32) * SCALE_FACTOR as i32,
+                         SCALE_FACTOR as u32,
+                         SCALE_FACTOR as u32,
+                     ))
+                     .expect("Failed to draw pixel.");
+
+            }
+        }
+
     }
 
     pub fn draw_tile_set(&mut self, canvas: &mut Canvas<Window>) {
@@ -137,15 +165,13 @@ impl GameBoy {
             _=> println!("The cartridge type is NOT IMPLEMENTED"),
         }
 
-        let mut logo = [0;48];
         for i in 0..48 {
             let value = header[0x0104 +i];
-            logo[i]  = value;
+            self.memory_bus.vram[i+0x1800]  = value;
         }
 
 
         self.memory_bus.load_data(game_file);
-        self.memory_bus.vram = self.get_logo(logo);
 		let rom_size = header[0x148] ;
         let rom_actual = 32 * (1<<rom_size);
 
@@ -156,40 +182,6 @@ impl GameBoy {
         println!("RAM size : {:}", ram_size);
     }
 
-    fn get_logo(&self, logo: [u8; 48])-> [u8; 0x4000]{
-        let mut logo_complet = [0; 0x4000];
-        let mut vec = Vec::<u8>::new();
-
-        let mut i=0;
-        for j in 0..696 {
-            vec.push(0);
-        }
-
-        while i<24 {
-           
-            vec.push( logo[i]&0xF0|((logo[i+2]&0xF0)>>4));
-            vec.push( ((logo[i]&0xF)<<4)|(logo[i+2]&0xF));
-            vec.push( logo[i+1]&0xF0|((logo[i+3]&0xF0)>>4));
-            vec.push( ((logo[i+1]&0xF)<<4)|(logo[i+3]&0xF));
-            vec.push( logo[24+i]&0xF0|((logo[26+i]&0xF0)>>4));
-            vec.push(((logo[24+i]&0xF)<<4)|(logo[26+i]&0xF));
-            vec.push( logo[25+i]&0xF0|((logo[27+i]&0xF0)>>4));
-            vec.push( ((logo[25+i]&0xF)<<4)|(logo[27+i]&0xF));
-
-
-            i+=4;
-        }
-
-        i = 0;
-        for bit in vec {
-            logo_complet[i] = bit;
-            logo_complet[i+1] = bit;
-
-            i+=2;
-        }
-
-        logo_complet
-    }
    
     pub fn load_bios(&mut self){
        
