@@ -922,12 +922,13 @@ impl CPU {
                             self.pc.wrapping_add(1)
                         }
                         Target8::HL => {
+                            println!("a : {:02X}, hl : {:02X}", self.resgiters.a, self.resgiters.get_hl());
                             self.sub(memory.read_byte(self.resgiters.get_hl() as usize));
                             self.pc.wrapping_add(1)
                         }
                         Target8::D8 => {
-                           self.sub(memory.read_byte((self.pc + 1) as usize));
-                           self.pc.wrapping_add(2)
+                            self.sub(memory.read_byte((self.pc + 1) as usize));
+                            self.pc.wrapping_add(2)
 
                         }
                     }
@@ -1204,8 +1205,13 @@ impl CPU {
                                 LoadByteSource::HL => memory.read_byte(self.resgiters.get_hl() as usize),
                                 LoadByteSource::BC => memory.read_byte(self.resgiters.get_bc() as usize),
                                 LoadByteSource::DE => memory.read_byte(self.resgiters.get_de() as usize),
-                                LoadByteSource::HLI => memory.read_byte((self.resgiters.get_hl() + 1) as usize),
-                                LoadByteSource::HLD => memory.read_byte((self.resgiters.get_hl() - 1) as usize),
+                                LoadByteSource::HLI =>  {
+                                    let hl = self.resgiters.get_hl().overflowing_sub(1).0;
+                                   self.resgiters.set_hl(hl);memory.read_byte(self.resgiters.get_hl() as usize)},
+                                LoadByteSource::HLD =>  {
+                                    let hl = self.resgiters.get_hl().overflowing_sub(1).0;
+                                   self.resgiters.set_hl(hl);
+                                   memory.read_byte(self.resgiters.get_hl() as usize)},
                             };
 
                             match target {
@@ -1217,8 +1223,14 @@ impl CPU {
                                 LoadByteTarget::H => self.resgiters.h = source_value,
                                 LoadByteTarget::L => self.resgiters.l = source_value,
                                 LoadByteTarget::HL => memory.write_byte(self.resgiters.get_hl() as usize, source_value),
-                                LoadByteTarget::HLI => memory.write_byte((self.resgiters.get_hl() + 1) as usize, source_value),
-                                LoadByteTarget::HLD => memory.write_byte((self.resgiters.get_hl() - 1) as usize, source_value),
+                                LoadByteTarget::HLI =>  {
+                                    let hl = self.resgiters.get_hl().overflowing_add(1).0;
+                                    memory.write_byte(hl as usize, source_value); self.resgiters.set_hl(hl);},
+                                LoadByteTarget::HLD => {
+                                    let hl = self.resgiters.get_hl().wrapping_sub(1);
+                                    memory.write_byte(hl as usize, source_value);
+                                    self.resgiters.set_hl(hl);
+                                },
                                 LoadByteTarget::BC => memory.write_byte(self.resgiters.get_bc() as usize, source_value),
                                 LoadByteTarget::DE => memory.write_byte(self.resgiters.get_de() as usize, source_value),
                             };
@@ -1231,7 +1243,7 @@ impl CPU {
                         LoadType::Word(target,source ) => {
                             let source_value = match source {
                                 LoadWordSource::SP => self.sp,
-                                LoadWordSource::D16 => (memory.read_byte((self.pc + 1) as usize) as u16) & ((memory.read_byte((self.pc + 2) as usize) as u16 )<< 8),
+                                LoadWordSource::D16 => (memory.read_byte((self.pc + 1) as usize) as u16) | ((memory.read_byte((self.pc + 2) as usize) as u16 )<< 8),
                                 LoadWordSource::HL => self.resgiters.get_hl(),
                                 LoadWordSource::SP8 => {
                                     let r = memory.read_byte((self.pc + 1) as usize) as i8;
@@ -1251,14 +1263,15 @@ impl CPU {
                                 LoadWordTarget::HL => self.resgiters.set_hl(source_value),
                                 LoadWordTarget::SP => self.sp = source_value,
                                 LoadWordTarget::A16 => {
-                                    let nn = ((memory.read_byte((self.pc + 1) as usize) as u16) & ((memory.read_byte((self.pc + 2)as usize) as u16 )<< 8))as  usize;
-                                     memory.write_byte(nn, (source_value & 0xFF) as u8);
-                                     memory.write_byte(nn + 1, ((source_value & 0xFF00)>>8) as u8);
+                                    let nn = ((memory.read_byte((self.pc + 1) as usize) as u16) | ((memory.read_byte((self.pc + 2)as usize) as u16 )<< 8))as  usize;
+                                    self.pc = self.pc.wrapping_add(2);
+                                    memory.write_byte(nn, (source_value & 0xFF) as u8);
+                                    memory.write_byte(nn + 1, ((source_value & 0xFF00)>>8) as u8);
                                 },
                             };
 
                             match source {
-                                LoadWordSource::D16 => self.pc.wrapping_add(3),
+                                LoadWordSource::D16 |LoadWordSource::SP8 => self.pc.wrapping_add(3),
                                 _=> self.pc.wrapping_add(1)
                             }
                         },
@@ -1267,7 +1280,7 @@ impl CPU {
                                 LoadASource::C => memory.read_byte(((self.resgiters.c as u16) & 0xFF00)as usize),
                                 LoadASource::A => self.resgiters.a,
                                 LoadASource::A8 => {let n = memory.read_byte((self.pc +1)as usize);
-                                    memory.read_byte(((n as u16)&0xFF00)as usize)
+                                    memory.read_byte(((n as u16)|0xFF00)as usize)
                                 },
                                 LoadASource::A16 => {
                                     let lower = memory.read_byte((self.pc + 1) as usize);
@@ -1281,11 +1294,14 @@ impl CPU {
                                 LoadATarget::A => self.resgiters.a = source_value,
                                 LoadATarget::C => memory.write_byte(((self.resgiters.c as u16) & 0xFF00) as usize, source_value),
                                 LoadATarget::A8 => {
-                                    let address = ((memory.read_byte((self.pc +1)as usize) as u16)&0xFF00) as usize;
+                                    let address = ((memory.read_byte((self.pc +1)as usize) as u16)&0xFF00) as usize; 
+                                    self.pc = self.pc.wrapping_add(1);
                                     memory.write_byte(address, source_value)},
                                 LoadATarget::A16 => {
                                     let lower = memory.read_byte((self.pc + 1) as usize);
                                     let higher = memory.read_byte((self.pc + 2) as usize);
+                                    self.pc = self.pc.wrapping_add(2);
+
                                     memory.write_byte((((higher as u16)<<8)|(lower as u16))as usize, source_value)
 
                                 },
@@ -1293,7 +1309,8 @@ impl CPU {
 
                             match source {
                                 LoadASource::A16 => self.pc.wrapping_add(3),
-                                _=> self.pc.wrapping_add(2)
+                                LoadASource::A8 => self.pc.wrapping_add(2),
+                                _=> self.pc.wrapping_add(1)
                             }
                         }
                     }
@@ -2032,14 +2049,18 @@ impl CPU {
     pub fn step(&mut self, memory : &mut MemoryBus){
         //On récupère l'instruction à faire depuis le bus.
         let mut instruction_byte = memory.read_byte(self.pc as usize );
-        
+        if self.pc != 0xe9 {
+          println!("pc : {:02x} instruction {:02x}", self.pc, instruction_byte);
+
+        }
 
         //On vérifie si l'instruction est un préfixe.
         let prefixed = instruction_byte== 0xCB;
 
         //S'il y a un préfix, l'instruction passe à celle suivante dans le bus
         if prefixed {
-            instruction_byte = memory.read_byte((self.pc + 1) as usize);
+            self.pc = self.pc.wrapping_add(1);
+            instruction_byte = memory.read_byte((self.pc) as usize);
         }
 
         //On vérifie que l'insturction existe.
@@ -2108,8 +2129,8 @@ impl CPU {
         self.resgiters.f.subtract = true;
         let lower_a = self.resgiters.a & 0xF;
         let lower_value = value & 0xF;
-        let half_carry = lower_a - lower_value;
-        self.resgiters.f.half_carry = half_carry>15 ;
+        let (_,half_carry) = lower_a.overflowing_sub(lower_value);
+        self.resgiters.f.half_carry = half_carry ;
 
         new
     }
@@ -2186,8 +2207,7 @@ impl CPU {
     pub fn jr(&self, condition: bool, memory : &mut MemoryBus) ->u16{
         if condition {
             let n = memory.read_byte((self.pc + 1) as usize) as i8;
-
-            self.pc.wrapping_add_signed(n as i16)
+            self.pc.wrapping_add(2).wrapping_add_signed(n as i16)
         } else {
             self.pc.wrapping_add(2)
         }
@@ -2202,8 +2222,11 @@ impl CPU {
         let lower = (value & 0xFF) as u8;
         let higher = ((value & 0xFF00)>>8) as u8;
 
-        memory.write_byte((self.sp -1) as usize , higher);
-        memory.write_byte((self.sp -2) as usize, lower);
+        let (sp_1,_) = self.sp.overflowing_sub(1) ;
+        let (sp_2, _) = self.sp.overflowing_sub(2);
+
+        memory.write_byte(sp_1 as usize , higher);
+        memory.write_byte( sp_2 as usize, lower);
         self.sp = self.sp.wrapping_sub(2);
     }
 
@@ -2218,11 +2241,12 @@ impl CPU {
     pub fn call(&mut self, jump: bool, memory : &mut MemoryBus) -> u16{
         let lower = memory.read_byte((self.pc + 1) as usize);
         let higher = memory.read_byte((self.pc + 2) as usize);
-        let next_program = (lower as u16) & ((higher as u16)<<8);
+        let next_program = (lower as u16) | ((higher as u16)<<8);
         if jump {
-            self.push(self.pc + 3, memory);
+            self.push(self.pc.wrapping_add(3), memory);
             next_program
         } else {
+            
             self.pc.wrapping_add(3)
         }
 

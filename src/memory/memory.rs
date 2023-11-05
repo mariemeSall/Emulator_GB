@@ -75,17 +75,15 @@ impl MemoryBus {
 
     pub fn read_byte(&mut self, address: usize) -> u8 {
         let bios_len = self.bios.len();
-        if address <bios_len {
-            if address<0x0200 {
-                self.mbc.read_byte(address)
-
-            } else {
+        if 0x100 <= address && address<0x200 {
+            self.mbc.read_byte(address)
+        } else if address <bios_len {
                 if self.bios_run {
                     self.bios[address]
                 } else {
                     self.mbc.read_byte(address)
                 }
-            }
+            
         } else {
             match address {
                 0x0..=0x7FFF|0xA000 ..=0xBFFF => {
@@ -153,7 +151,7 @@ impl MemoryBus {
                 self.memory[0xFF04] = 0
             },   
             0xFF44  => { 
-                 self.memory[0xFF44] = 0
+                self.memory[0xFF44] = value
             },
             0xFF46  => { 
                 let start = (value as u16) << 8;

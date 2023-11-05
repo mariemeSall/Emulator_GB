@@ -91,7 +91,7 @@ impl Resgisters {
 
     pub fn get_hl(&self) -> u16 {
         (self.h as u16) << 8 
-        | self.e as u16
+        | self.l as u16
 
     }
 

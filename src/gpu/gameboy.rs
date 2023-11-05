@@ -3,7 +3,7 @@ use crate::cpu::cpu::CPU;
 use crate::gpu::gpu::VRAM_START;
 use crate::memory::memory::MemoryBus;
 
-use super::gpu::{GPU, PixelColorVal};
+use super::gpu::{GPU, PixelColorVal, SCROLLY, LINE};
 
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
@@ -24,6 +24,7 @@ pub struct GameBoy {
     pub gpu: GPU,
     pub memory_bus: MemoryBus,
     pub screen_is_open: bool,
+    pub done: bool,
 }
 
 impl GameBoy {
@@ -33,16 +34,34 @@ impl GameBoy {
             gpu: GPU::new(),
             memory_bus: MemoryBus::new(),
             screen_is_open: false,
+            done: false,
         }
        
     }
     pub fn step(&mut self) {
         // Exécutez une étape de l'émulateur ici
         // Par exemple, vous pouvez mettre à jour le CPU, le GPU, la mémoire, etc
+        if self.cpu.pc == 0x100 {
+            self.memory_bus.bios_run=false;
+        }
         self.gpu.step(&mut self.memory_bus);
         self.cpu.step(&mut self.memory_bus);
+        
+
+       
     }
 
+    pub fn is_halted(&self)->bool{
+        self.cpu.is_halted
+    }
+
+    pub fn display_screen(&mut self, canvas: &mut Canvas<Window>){
+    
+        self.draw_screen(canvas);
+        canvas.present();  
+    
+    }
+    
     pub fn run(&mut self) {
         let sdl_context = sdl2::init().unwrap();
         let video_subsystem = sdl_context.video().unwrap();
@@ -84,12 +103,12 @@ impl GameBoy {
             self.draw_screen(&mut canvas);
             canvas.present();
 
-            std::thread::sleep(Duration::new(0, 1_000_000_000 / 60));
+           std::thread::sleep(Duration::new(0, 1_000_000_000 / 60));
         }
     }
 
 
-    fn draw_screen(&mut self, canvas: &mut Canvas<Window>){
+    pub fn draw_screen(&mut self, canvas: &mut Canvas<Window>){
         let screen = self.gpu.screen;
         for pixel_y in 0..144 {
             for pixel_x in 0..160 {
@@ -99,16 +118,20 @@ impl GameBoy {
                     PixelColorVal::Two => Color { r: 80, g: 80, b: 80, a: 255 }, // dark grey
                     PixelColorVal::Three => Color::WHITE,
                 };
+                if self.memory_bus.bios_run {
+
+                    //println!("DRAW");
+                }
                  //Dessine le pixel sur le canvas
-                 canvas.set_draw_color(pixel_color);
-                 canvas
-                     .fill_rect(Rect::new(
+                canvas.set_draw_color(pixel_color);
+                canvas
+                    .fill_rect(Rect::new(
                          (pixel_x as i32) * SCALE_FACTOR as i32,
                          (pixel_y as i32) * SCALE_FACTOR as i32,
                          SCALE_FACTOR as u32,
                          SCALE_FACTOR as u32,
-                     ))
-                     .expect("Failed to draw pixel.");
+                    ))
+                    .expect("Failed to draw pixel.");
 
             }
         }
@@ -165,12 +188,6 @@ impl GameBoy {
             _=> println!("The cartridge type is NOT IMPLEMENTED"),
         }
 
-        for i in 0..48 {
-            let value = header[0x0104 +i];
-            self.memory_bus.vram[i+0x1800]  = value;
-        }
-
-
         self.memory_bus.load_data(game_file);
 		let rom_size = header[0x148] ;
         let rom_actual = 32 * (1<<rom_size);
@@ -182,51 +199,101 @@ impl GameBoy {
         println!("RAM size : {:}", ram_size);
     }
 
+    fn logo(&mut self){
+        let mut address = 0x8010;
+        
+        for i in 0x0104 .. 0x134 {
+            let top = Self::decompress(self.memory_bus.read_byte(i)>>4);
+            let low = Self::decompress(self.memory_bus.read_byte(i)&0xF);
+            self.memory_bus.write_byte(address, top);
+            self.memory_bus.write_byte(address + 1, top);
+            self.memory_bus.write_byte(address + 2, top);
+            self.memory_bus.write_byte(address + 3, top);
+            self.memory_bus.write_byte(address + 4, low);
+            self.memory_bus.write_byte(address + 5, low);
+            self.memory_bus.write_byte(address + 6, low);
+            self.memory_bus.write_byte(address + 7, low);
+            address+=8;
+        }
+    }
+
+    fn decompress(value:u8)->u8 {
+        (((value&8)>>3)<<7)|(((value&8)>>3)<<6)|(((value&4)>>2)<<5)|(((value&4)>>2)<<4)|(((value&2)>>1)<<3)|(((value&2)>>1)<<2)|((value&1)<<1)|(value&1)
+
+    }
+
+    fn copyright(&mut self){
+        let mut address = 0x8100;
+        for i in 0xD8..0xE0 {
+            let value = self.memory_bus.read_byte(i);
+            self.memory_bus.write_byte(address, value);
+            self.memory_bus.write_byte(address+1, value);
+            address+=2;
+        }
+
+    }
+
    
     pub fn load_bios(&mut self){
        
 
-        self.cpu.resgiters.set_af(0x190);
-        self.cpu.resgiters.set_bc(0x13);
-        self.cpu.resgiters.set_de(0xD8);
-        self.cpu.resgiters.set_hl(0x14D);
+        match File::open("rom/gb_bios.bin") {
+			Ok(mut bios_file) => {
+				println!("Found BIOS");
+				let _ = bios_file.read_to_end(&mut self.memory_bus.bios);
+				println!("Successfully loaded bios\n");
+			},
+			Err(_) => {
+				println!("Could not find BIOS");
+				println!("Manually initializing emulator...");
 
-        self.cpu.sp = 0xFFFE;
-        self.cpu.pc = 0x0100;
+                self.cpu.sp = 0xFFFE;
+                self.cpu.resgiters.a = 0;
+                self.cpu.resgiters.set_hl(0x8010);
 
-        self.memory_bus.write_byte(0xFF05, 0x00);
-        self.memory_bus.write_byte(0xFF06, 0x00);
-        self.memory_bus.write_byte(0xFF07, 0x00);
-        self.memory_bus.write_byte(0xFF10, 0x80);
-        self.memory_bus.write_byte(0xFF11, 0xBF);
-        self.memory_bus.write_byte(0xFF12, 0xF3);
-        self.memory_bus.write_byte(0xFF14, 0xBF);
-        self.memory_bus.write_byte(0xFF16, 0x3F);
-        self.memory_bus.write_byte(0xFF17, 0x00);
-        self.memory_bus.write_byte(0xFF19, 0xBF);
-        self.memory_bus.write_byte(0xFF1A, 0x7F);
-        self.memory_bus.write_byte(0xFF1B, 0xFF);
-        self.memory_bus.write_byte(0xFF1C, 0x9F);
-        self.memory_bus.write_byte(0xFF1E, 0xBF);
-        self.memory_bus.write_byte(0xFF20, 0xFF);
-        self.memory_bus.write_byte(0xFF21, 0x00);
-        self.memory_bus.write_byte(0xFF22, 0x00);
-        self.memory_bus.write_byte(0xFF23, 0xBF);
-        self.memory_bus.write_byte(0xFF24, 0x77);
-        self.memory_bus.write_byte(0xFF25, 0xF3);
-        self.memory_bus.write_byte(0xFF26, 0xF1);
-        self.memory_bus.write_byte(0xFF40, 0x91);
-        self.memory_bus.write_byte(0xFF42, 0x00);
-        self.memory_bus.write_byte(0xFF43, 0x00);
-        self.memory_bus.write_byte(0xFF45, 0x00);
-        self.memory_bus.write_byte(0xFF47, 0xFC);
-        self.memory_bus.write_byte(0xFF48, 0xFF);
-        self.memory_bus.write_byte(0xFF49, 0xFF);
-        self.memory_bus.write_byte(0xFF4A, 0x00);
-        self.memory_bus.write_byte(0xFF4B, 0x00);
-        self.memory_bus.write_byte(0xFFFF, 0x00);
+                //nettoie la vram
+                for i in 0x8000..0xA000 {
+                    self.memory_bus.write_byte(i, 0);
+                }
 
-        self.memory_bus.bios_run = false;
+                self.memory_bus.write_byte(0xFF47, 0xFC);
+                //Met le logo dans la vram
+                self.logo();
+
+                let mut a = 25;
+                self.memory_bus.write_byte(0x9910, a);
+                let mut address = 0x992F;
+
+                for _i in 0..2 {
+
+                    for _j in 0..12 {
+                        a-=1;
+                        self.memory_bus.write_byte(address, a);
+                        address-=1;
+                    }
+                    
+                    address = 0x990F;
+                }
+
+
+                self.memory_bus.write_byte(0xFF42,100);
+                self.memory_bus.write_byte(0xFF40, 0x91);
+                self.cpu.pc = 0x0100;
+            }
+        }       
+    }
+
+    fn bios_step(&mut self){
+        let scroll_y = self.memory_bus.read_byte(SCROLLY);
+        self.gpu.step(&mut self.memory_bus);
+
+        if scroll_y ==0 {
+            self.memory_bus.bios_run = false;
+            return;
+        }
+
+        self.memory_bus.write_byte(SCROLLY, scroll_y-1);
+
 
     }
 

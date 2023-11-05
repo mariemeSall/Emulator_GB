@@ -74,7 +74,7 @@ impl GPU {
 
     pub fn step(&mut self, memory : &mut MemoryBus ){
         //Passe à la ligne suivante en wrappant la valeur
-        let line = (memory.read_byte(LINE)+1)%154;
+        let line = (memory.read_byte(LINE) + 1)%154;
         memory.write_byte(LINE, line);
         //update le lcdc 
         self.lcdc.write(memory.read_byte(LCDC));
@@ -84,6 +84,7 @@ impl GPU {
             self.draw_tiles(memory);
             //Si le lcdc autorise les objets, on dessine les objets
             if self.lcdc.sprite_display_enable {
+                println!("object");
                 self.draw_objects(memory);
             }
         }
@@ -179,14 +180,11 @@ impl GPU {
         let line = memory.read_byte(LINE);
         let scroll_x = memory.read_byte(SCROLLX);
         let scroll_y = memory.read_byte(SCROLLY);
-
         let window_x = memory.read_byte(WINDOWX).wrapping_sub(7);
         let window_y = memory.read_byte(WINDOWY);
 
         let background_map_range = if self.lcdc.bg_tile_map {0x9C00}else{0x9800};
-        println!("background {:04x}", background_map_range);
         let window_map_range = if self.lcdc.window_tile_map {0x9C00}else{0x9800};
-        println!("windwow {:04x}", window_map_range);
         let bw_tile_data_range = if self.lcdc.bg_display_enable {0x8000}else{0x8800};
         let using_window = self.lcdc.window_display_enable && window_y<=line;
         let background = if using_window {window_map_range} else {background_map_range};
@@ -206,20 +204,19 @@ impl GPU {
 				x_offset = x - window_x;
 			}
 
+            
             let tile_col = x_offset/8;
 
             let address = background + (tile_row as u16)*32 + (tile_col as u16);
-
+           
             let tile = if self.lcdc.bg_display_enable {
 				bw_tile_data_range + (memory.read_vram(address as usize, false) as u16)*16
             } else {
 				bw_tile_data_range + ((memory.read_vram(address as usize, false)as i8 as i16 +128 )as u16)*16
             };
-
             let tile_line = (y_offset%8 )as u16;
 
             let address = (tile + tile_line*2) as usize;
-
             let lsb = memory.read_byte(address);
             let msb = memory.read_byte(address+1);
 
