@@ -7,6 +7,7 @@ pub struct CPU {
     pub pc: u16,
     pub sp: u16,
     pub is_halted: bool,
+    pub is_stopped: bool,
     pub ime: bool,
 }
 
@@ -663,6 +664,7 @@ impl CPU {
     pub fn new() -> CPU {
         CPU {
             is_halted : false,
+            is_stopped: false,
             ime: true,
             resgiters : Resgisters::new(),
             sp: 0xFFFE,
@@ -670,8 +672,8 @@ impl CPU {
         }
     }
 
-    pub fn execute(&mut self, instruction: Instructions, memory : &mut MemoryBus) -> u16{
-        if !self.is_halted{
+    pub fn execute(&mut self, instruction: Instructions, memory : &mut MemoryBus) -> (u16, u64){
+        if !self.is_halted&&!self.is_stopped{
             match instruction {
                 Instructions::ADD(add)=>{
                     match add {
@@ -679,48 +681,50 @@ impl CPU {
                             match target {
                                 Target8::A=> {
                                     self.resgiters.a = self.add(self.resgiters.a); 
-                                    self.pc.wrapping_add(1)
                                 },
                                 Target8::B=> {
                                     let value = self.resgiters.b;
                                     self.resgiters.a = self.add(value);
-                                    self.pc.wrapping_add(1)
                                 },
                                 Target8::C=> {
                                     let value = self.resgiters.c;
                                     self.resgiters.a = self.add(value);
-                                    self.pc.wrapping_add(1)
                                 },
                                 Target8::D=> {
                                     let value = self.resgiters.d;
                                     self.resgiters.a = self.add(value);
-                                    self.pc.wrapping_add(1)
                                 },
                                 Target8::E=> {
                                     let value = self.resgiters.e;
                                     self.resgiters.a = self.add(value);                    
-                                    self.pc.wrapping_add(1)
                                 },
                                 Target8::H=> {
                                     let value = self.resgiters.h;
                                     self.resgiters.a = self.add(value);                    
-                                    self.pc.wrapping_add(1)
                                 },
                                 Target8::L=> {
                                     let value = self.resgiters.l;
                                     self.resgiters.a = self.add(value);
-                                    self.pc.wrapping_add(1)
                                 },
                                 Target8::HL => {
                                     let value = memory.read_byte(self.resgiters.get_hl() as usize);
                                     self.resgiters.a = self.add(value);
-                                    self.pc.wrapping_add(1)
                                 },
                                 Target8::D8 => {
                                     let value = memory.read_byte((self.pc + 1) as usize);
                                     self.resgiters.a = self.add(value);
-                                    self.pc.wrapping_add(2)
                                 }
+                            };
+                            match target {
+                                Target8::D8 => {
+                                    (self.pc.wrapping_add(2),8)
+        
+                                },
+                                Target8::HL => {
+                                    (self.pc.wrapping_add(1),8)
+                                },
+                                _=>(self.pc.wrapping_add(1),4)
+        
                             }
                         },
                         TargetType::HL(target) => {
@@ -728,22 +732,18 @@ impl CPU {
                                 Target16::BC => {
                                     let value = self.resgiters.get_bc();
                                     self.add_hl(value);
-                                    self.pc.wrapping_add(1)
                                 },
                                 Target16::DE => {
                                     let value = self.resgiters.get_de();
                                     self.add_hl(value);
-                                    self.pc.wrapping_add(1)
                                 },
                                 Target16::HL => {
                                     let value = self.resgiters.get_hl();
                                     self.add_hl(value);
-                                    self.pc.wrapping_add(1)
                                 },
                                 Target16::SP => {
                                     let value = self.sp;
                                     self.add_hl(value);
-                                    self.pc.wrapping_add(1)
                                 },
                                 Target16::R8=> {
                                     let n = memory.read_byte((self.pc + 1) as usize) as i8;
@@ -755,8 +755,15 @@ impl CPU {
                             
                                     self.resgiters.set_hl(new);
 
-                                    self.pc.wrapping_add(2)
                                 },
+                            };
+                            match target {
+                                Target16::R8 => {
+                                    (self.pc.wrapping_add(2),16)
+        
+                                },
+                                _=>(self.pc.wrapping_add(1),8)
+        
                             }
                           
 
@@ -767,170 +774,177 @@ impl CPU {
                     match target {
                         Target8::A=> {
                             self.resgiters.a = self.adc(self.resgiters.a); 
-                            self.pc.wrapping_add(1)
                         },
                         Target8::B=> {
                             let value = self.resgiters.b;
                             self.resgiters.a = self.adc(value);
-                            self.pc.wrapping_add(1)
                         },
                         Target8::C=> {
                             let value = self.resgiters.c;
                             self.resgiters.a = self.adc(value);
-                            self.pc.wrapping_add(1)
                         },
                         Target8::D=> {
                             let value = self.resgiters.d;
                             self.resgiters.a = self.adc(value);
-                            self.pc.wrapping_add(1)
                         },
                         Target8::E=> {
                             let value = self.resgiters.e;
                             self.resgiters.a = self.adc(value);                    
-                            self.pc.wrapping_add(1)
                         },
                         Target8::H=> {
                             let value = self.resgiters.h;
                             self.resgiters.a = self.adc(value);                    
-                            self.pc.wrapping_add(1)
                         },
                         Target8::L=> {
                             let value = self.resgiters.l;
                             self.resgiters.a = self.adc(value);
-                            self.pc.wrapping_add(1)
                         },
                         Target8::HL => {
                             let value = memory.read_byte(self.resgiters.get_hl() as usize);
                             self.resgiters.a = self.adc(value);
-                            self.pc.wrapping_add(1)
                         },
                         Target8::D8 => {
                             let value = memory.read_byte((self.pc + 1) as usize);
                             self.resgiters.a = self.add(value);
-                            self.pc.wrapping_add(2)
                         }
+                    };
+                    match target {
+                        Target8::D8 => {
+                            (self.pc.wrapping_add(2),8)
+
+                        },
+                        Target8::HL => {
+                            (self.pc.wrapping_add(1),8)
+                        },
+                        _=>(self.pc.wrapping_add(1),4)
+
                     }
                 },
                 Instructions::SUB(target)=> {
                     match target {
                         Target8::A => {
                             self.resgiters.a = self.sub(self.resgiters.a);
-                            self.pc.wrapping_add(1)
                         }
                         Target8::B => {
                             self.resgiters.a = self.sub(self.resgiters.b);
-                            self.pc.wrapping_add(1)
                         }
                         Target8::C => {
                             self.resgiters.a = self.sub(self.resgiters.c);
-                            self.pc.wrapping_add(1)
                         }
                         Target8::D => {
                             self.resgiters.a = self.sub(self.resgiters.d);
-                            self.pc.wrapping_add(1)
                         }
                         Target8::E => {
                             self.resgiters.a = self.sub(self.resgiters.e);
-                            self.pc.wrapping_add(1)
                         }
                         Target8::H => {
                             self.resgiters.a = self.sub(self.resgiters.h);
-                            self.pc.wrapping_add(1)
                         }
                         Target8::L => {
                             self.resgiters.a = self.sub(self.resgiters.l);
-                            self.pc.wrapping_add(1)
                         }
                         Target8::HL => {
                             self.resgiters.a = self.sub(memory.read_byte(self.resgiters.get_hl() as usize));
-                            self.pc.wrapping_add(1)
                         }
                         Target8::D8 => {
                             self.resgiters.a = self.sub(memory.read_byte((self.pc + 1) as usize));
-                            self.pc.wrapping_add(2)
                         }
+                    };
+                    match target {
+                        Target8::D8 => {
+                            (self.pc.wrapping_add(2),8)
+
+                        },
+                        Target8::HL => {
+                            (self.pc.wrapping_add(1),8)
+                        },
+                        _=>(self.pc.wrapping_add(1),4)
+
                     }
                 },
                 Instructions::SBC(target)=> {
                     match target {
                         Target8::A => {
                             self.resgiters.a = self.sbc(self.resgiters.a);
-                            self.pc.wrapping_add(1)
                         }
                         Target8::B => {
                             self.resgiters.a = self.sbc(self.resgiters.b);
-                            self.pc.wrapping_add(1)
                         }
                         Target8::C => {
                             self.resgiters.a = self.sbc(self.resgiters.c);
-                            self.pc.wrapping_add(1)
                         }
                         Target8::D => {
                             self.resgiters.a = self.sbc(self.resgiters.d);
-                            self.pc.wrapping_add(1)
                         }
                         Target8::E => {
                             self.resgiters.a = self.sbc(self.resgiters.e);
-                            self.pc.wrapping_add(1)
                         }
                         Target8::H => {
                             self.resgiters.a = self.sbc(self.resgiters.h);
-                            self.pc.wrapping_add(1)
                         }
                         Target8::L => {
                             self.resgiters.a = self.sbc(self.resgiters.l);
-                            self.pc.wrapping_add(1)
                         }
                         Target8::HL => {
                             self.resgiters.a = self.sbc(memory.read_byte(self.resgiters.get_hl() as usize));
-                            self.pc.wrapping_add(1)
                         }
                         Target8::D8 => {
                             self.resgiters.a = self.sbc(memory.read_byte((self.pc + 1) as usize));
-                            self.pc.wrapping_add(2)
                         }
+                    };
+                    match target {
+                        Target8::D8 => {
+                            (self.pc.wrapping_add(2),8)
+
+                        },
+                        Target8::HL => {
+                            (self.pc.wrapping_add(1),8)
+                        },
+                        _=>(self.pc.wrapping_add(1),4)
+
                     }
                 },
                 Instructions::CP(target)=> {
                     match target {
                         Target8::A => {
                             self.sub(self.resgiters.a);
-                            self.pc.wrapping_add(1)
                         }
                         Target8::B => {
                             self.sub(self.resgiters.b);
-                            self.pc.wrapping_add(1)
                         }
                         Target8::C => {
                             self.sub(self.resgiters.c);
-                            self.pc.wrapping_add(1)
                         }
                         Target8::D => {
                             self.sub(self.resgiters.d);
-                            self.pc.wrapping_add(1)
                         }
                         Target8::E => {
                             self.sub(self.resgiters.e);
-                            self.pc.wrapping_add(1)
                         }
                         Target8::H => {
                             self.sub(self.resgiters.h);
-                            self.pc.wrapping_add(1)
                         }
                         Target8::L => {
                             self.sub(self.resgiters.l);
-                            self.pc.wrapping_add(1)
                         }
                         Target8::HL => {
-                            println!("a : {:02X}, hl : {:02X}", self.resgiters.a, self.resgiters.get_hl());
                             self.sub(memory.read_byte(self.resgiters.get_hl() as usize));
-                            self.pc.wrapping_add(1)
                         }
                         Target8::D8 => {
                             self.sub(memory.read_byte((self.pc + 1) as usize));
-                            self.pc.wrapping_add(2)
 
                         }
+                    };
+                    match target {
+                        Target8::D8 => {
+                            (self.pc.wrapping_add(2),8)
+
+                        },
+                        Target8::HL => {
+                            (self.pc.wrapping_add(1),8)
+                        },
+                        _=>(self.pc.wrapping_add(1),4)
+
                     }
                 },
                 Instructions::INC(target)=> {
@@ -997,6 +1011,10 @@ impl CPU {
                                 _=> panic!("Incrémentation target")
 
                             }
+                            match t8 {
+                                Target8::HL =>(self.pc.wrapping_add(1), 12),
+                                _=>(self.pc.wrapping_add(1), 4)
+                            }
                         },
                         TargetType::HL(t16)=>{
                             match t16 {
@@ -1006,9 +1024,11 @@ impl CPU {
                                 Target16::SP => self.sp +=1,
                                 _=> panic!("INC target 16")
                             }
+                            (self.pc.wrapping_add(1), 8)
+
                         },                        
-                    };
-                    self.pc.wrapping_add(1)
+                    }
+
                 },
                 Instructions::DEC(target)=> {
                     match target {
@@ -1074,6 +1094,10 @@ impl CPU {
                                 _=> panic!("Decrémentation target")
 
                             }
+                            match t8 {
+                                Target8::HL =>(self.pc.wrapping_add(1), 12),
+                                _=>(self.pc.wrapping_add(1), 4)
+                            }
                         },
                         TargetType::HL(t16)=>{
                             match t16 {
@@ -1083,9 +1107,11 @@ impl CPU {
                                 Target16::SP => self.sp -=1,
                                 _ => panic!("DEC target 16")
                             }
-                        },                        
-                    };
-                    self.pc.wrapping_add(1)
+                            (self.pc.wrapping_add(1), 8)
+                        },
+                        
+                    }
+                    
                 },
                 Instructions::AND(target) => {
                     match target {
@@ -1096,13 +1122,20 @@ impl CPU {
                         Target8::E => self.and(self.resgiters.e),
                         Target8::H => self.and(self.resgiters.h),
                         Target8::HL => self.and(memory.read_byte((self.resgiters.get_hl())as usize)),
-                        Target8::D8 => {
-                            self.and(memory.read_byte((self.pc + 1) as usize)); 
-                            self.pc = self.pc.wrapping_add(1)},
+                        Target8::D8 => self.and(memory.read_byte((self.pc + 1) as usize)), 
                         _=> panic!("AND target")
                     }
-                    self.pc.wrapping_add(1)
+                    match target {
+                        Target8::D8 => {
+                            (self.pc.wrapping_add(2),8)
 
+                        },
+                        Target8::HL => {
+                            (self.pc.wrapping_add(1),8)
+                        },
+                        _=>(self.pc.wrapping_add(1),4)
+
+                    }
                 },
                 Instructions::OR(target) => {
                     match target {
@@ -1113,13 +1146,20 @@ impl CPU {
                         Target8::E => self.or(self.resgiters.e),
                         Target8::H => self.or(self.resgiters.h),
                         Target8::HL => self.or(memory.read_byte(self.resgiters.get_hl() as usize)),
-                        Target8::D8 => {
-                            self.or(memory.read_byte((self.pc + 1) as usize)); 
-                            self.pc = self.pc.wrapping_add(1)},
+                        Target8::D8 => self.or(memory.read_byte((self.pc + 1) as usize)),
                         _=> panic!("OR target")
-                    }
-                    self.pc.wrapping_add(1)
+                    };
+                    match target {
+                        Target8::D8 => {
+                            (self.pc.wrapping_add(2),8)
 
+                        },
+                        Target8::HL => {
+                            (self.pc.wrapping_add(1),8)
+                        },
+                        _=>(self.pc.wrapping_add(1),4)
+
+                    }
                 },
                 Instructions::XOR(target) => {
                     match target {
@@ -1130,25 +1170,32 @@ impl CPU {
                         Target8::E => self.xor(self.resgiters.e),
                         Target8::H => self.xor(self.resgiters.h),
                         Target8::HL => self.xor(memory.read_byte(self.resgiters.get_hl() as usize)),
-                        Target8::D8 => {
-                            self.xor(memory.read_byte((self.pc + 1) as usize)); 
-                            self.pc = self.pc.wrapping_add(1)},
+                        Target8::D8 => self.xor(memory.read_byte((self.pc + 1) as usize)),
                         _=> panic!("XOR target")
                     }
-                    self.pc.wrapping_add(1)
+                    match target {
+                        Target8::D8 => {
+                            (self.pc.wrapping_add(2),8)
 
+                        },
+                        Target8::HL => {
+                            (self.pc.wrapping_add(1),8)
+                        },
+                        _=>(self.pc.wrapping_add(1),4)
+
+                    }
                 },
                 Instructions::CCF() => {
                     self.ccf();
-                    self.pc.wrapping_add(1)
+                    (self.pc.wrapping_add(1),4)
                 },
                 Instructions::SCF() => {
                     self.scf();
-                    self.pc.wrapping_add(1)
+                    (self.pc.wrapping_add(1),4)
                 },
                 Instructions::CPL()=> {
                     self.cpl();
-                    self.pc.wrapping_add(1)
+                    (self.pc.wrapping_add(1),4)
                 }
                 Instructions::JP(condition) => {
                     match condition {
@@ -1159,13 +1206,13 @@ impl CPU {
                                 JumpTest::Zero => self.resgiters.f.zero,
                                 JumpTest::NotZero => !self.resgiters.f.zero
                             };
-                            self.jump(jump_condition, memory)
+                            (self.jump(jump_condition, memory),16/12)
 
                         },
                         Condition::No(a16) => {
                             match a16 {
-                                JumpValue::A16 => self.jump(true, memory) ,
-                                JumpValue::Hl => self.resgiters.get_hl(),
+                                JumpValue::A16 => (self.jump(true, memory),16) ,
+                                JumpValue::Hl => (self.resgiters.get_hl(),4),
                             }
                         },
 
@@ -1176,7 +1223,7 @@ impl CPU {
                 Instructions::JR(jmp)=> {
                     match jmp {
                         JumpCond::True => {
-                            self.jr(true, memory)
+                            (self.jr(true, memory),12)
                         },
                         JumpCond::Jump(jump) => {
                             let jump_condition = match jump {
@@ -1185,7 +1232,7 @@ impl CPU {
                                 JumpTest::Zero => self.resgiters.f.zero,
                                 JumpTest::NotZero => !self.resgiters.f.zero
                             };
-                            self.jr(jump_condition, memory)
+                            (self.jr(jump_condition, memory),12/8)
                         },
                     }
 
@@ -1206,12 +1253,15 @@ impl CPU {
                                 LoadByteSource::BC => memory.read_byte(self.resgiters.get_bc() as usize),
                                 LoadByteSource::DE => memory.read_byte(self.resgiters.get_de() as usize),
                                 LoadByteSource::HLI =>  {
-                                    let hl = self.resgiters.get_hl().overflowing_sub(1).0;
-                                   self.resgiters.set_hl(hl);memory.read_byte(self.resgiters.get_hl() as usize)},
+                                    let hl = self.resgiters.get_hl();
+                                   self.resgiters.set_hl(hl.overflowing_add(1).0);
+                                   memory.read_byte(hl as usize)
+                                },
                                 LoadByteSource::HLD =>  {
-                                    let hl = self.resgiters.get_hl().overflowing_sub(1).0;
-                                   self.resgiters.set_hl(hl);
-                                   memory.read_byte(self.resgiters.get_hl() as usize)},
+                                    let hl = self.resgiters.get_hl();
+                                   self.resgiters.set_hl(hl.overflowing_sub(1).0);
+                                   memory.read_byte(hl as usize)
+                                },
                             };
 
                             match target {
@@ -1224,21 +1274,35 @@ impl CPU {
                                 LoadByteTarget::L => self.resgiters.l = source_value,
                                 LoadByteTarget::HL => memory.write_byte(self.resgiters.get_hl() as usize, source_value),
                                 LoadByteTarget::HLI =>  {
-                                    let hl = self.resgiters.get_hl().overflowing_add(1).0;
-                                    memory.write_byte(hl as usize, source_value); self.resgiters.set_hl(hl);},
-                                LoadByteTarget::HLD => {
-                                    let hl = self.resgiters.get_hl().wrapping_sub(1);
+                                    let hl = self.resgiters.get_hl();
                                     memory.write_byte(hl as usize, source_value);
-                                    self.resgiters.set_hl(hl);
+                                    self.resgiters.set_hl(hl.overflowing_add(1).0);},
+                                LoadByteTarget::HLD => {
+                                    let hl = self.resgiters.get_hl();
+                                    memory.write_byte(hl as usize, source_value);
+                                    self.resgiters.set_hl(hl.overflowing_sub(1).0);
                                 },
                                 LoadByteTarget::BC => memory.write_byte(self.resgiters.get_bc() as usize, source_value),
                                 LoadByteTarget::DE => memory.write_byte(self.resgiters.get_de() as usize, source_value),
                             };
 
-                            match source {
+                           let pc =  match source {
                                 LoadByteSource::D8 => self.pc.wrapping_add(2),
                                 _=> self.pc.wrapping_add(1),
-                            }
+                            };
+
+                            let mut cycle = match source {
+                                LoadByteSource::D8|LoadByteSource::BC|LoadByteSource::DE|LoadByteSource::HL|LoadByteSource::HLD|LoadByteSource::HLI =>8,
+                                _=> 4,
+                            };
+                            cycle = match target {
+                                LoadByteTarget::BC|LoadByteTarget::DE|LoadByteTarget::HL|LoadByteTarget::HLD|LoadByteTarget::HLI =>{
+                                    if cycle == 8 {12} else {8}
+
+                                },
+                                _=> cycle
+                            };
+                            (pc, cycle)
                         },
                         LoadType::Word(target,source ) => {
                             let source_value = match source {
@@ -1270,14 +1334,21 @@ impl CPU {
                                 },
                             };
 
-                            match source {
+                            let pc = match source {
                                 LoadWordSource::D16 |LoadWordSource::SP8 => self.pc.wrapping_add(3),
                                 _=> self.pc.wrapping_add(1)
-                            }
+                            };
+                            let cycle = match source {
+                                LoadWordSource::SP => 20,
+                                LoadWordSource::HL=> 8,                                
+                                _=> 12,
+                            };
+                            
+                            (pc, cycle)
                         },
                         LoadType::A(target,source ) => {
                             let source_value = match source {
-                                LoadASource::C => memory.read_byte(((self.resgiters.c as u16) & 0xFF00)as usize),
+                                LoadASource::C => memory.read_byte(((self.resgiters.c as u16) | 0xFF00)as usize),
                                 LoadASource::A => self.resgiters.a,
                                 LoadASource::A8 => {let n = memory.read_byte((self.pc +1)as usize);
                                     memory.read_byte(((n as u16)|0xFF00)as usize)
@@ -1292,9 +1363,9 @@ impl CPU {
 
                             match target {
                                 LoadATarget::A => self.resgiters.a = source_value,
-                                LoadATarget::C => memory.write_byte(((self.resgiters.c as u16) & 0xFF00) as usize, source_value),
+                                LoadATarget::C => memory.write_byte(((self.resgiters.c as u16) | 0xFF00) as usize, source_value),
                                 LoadATarget::A8 => {
-                                    let address = ((memory.read_byte((self.pc +1)as usize) as u16)&0xFF00) as usize; 
+                                    let address = ((memory.read_byte((self.pc +1)as usize) as u16)|0xFF00) as usize; 
                                     self.pc = self.pc.wrapping_add(1);
                                     memory.write_byte(address, source_value)},
                                 LoadATarget::A16 => {
@@ -1307,11 +1378,27 @@ impl CPU {
                                 },
                             };
 
-                            match source {
+                            let pc = match source {
                                 LoadASource::A16 => self.pc.wrapping_add(3),
                                 LoadASource::A8 => self.pc.wrapping_add(2),
                                 _=> self.pc.wrapping_add(1)
-                            }
+                            };
+
+                            let cycle = match source {
+                                LoadASource::A16 => 16,
+                                LoadASource::A8 => 12,
+                                LoadASource::C=> 8 ,
+                                LoadASource::A => {
+                                    match  target {
+                                        LoadATarget::A16 => 16,
+                                        LoadATarget::A8 => 12,
+                                        LoadATarget::C => 8,
+                                        LoadATarget::A => panic!("Load A impossible")
+                                    }
+                                }
+                            };
+
+                            (pc, cycle)
                         }
                     }
                 }
@@ -1323,7 +1410,7 @@ impl CPU {
                         StackTarget::AF => self.resgiters.get_af(),
                     };
                     self.push(value, memory);
-                    self.pc.wrapping_add(1)
+                    (self.pc.wrapping_add(1), 16)
                 },
                 Instructions::POP(target) => {
                     let pop = self.pop(memory);
@@ -1333,11 +1420,11 @@ impl CPU {
                         StackTarget::HL => self.resgiters.set_hl(pop),
                         StackTarget::AF => self.resgiters.set_af(pop),
                     };
-                    self.pc.wrapping_add(1)
+                   ( self.pc.wrapping_add(1), 12)
                 },
                 Instructions::CALL(jmp)=>{
                     match jmp {
-                        JumpCond::True => self.call(true, memory),
+                        JumpCond::True => (self.call(true, memory), 24),
                         JumpCond::Jump(jump)=> {
                             let jump_condition = match jump {
                                 JumpTest::Carry => self.resgiters.f.carry,
@@ -1345,14 +1432,14 @@ impl CPU {
                                 JumpTest::Zero => self.resgiters.f.zero,
                                 JumpTest::NotZero => !self.resgiters.f.zero
                             };
-                            self.call(jump_condition, memory)
+                            (self.call(jump_condition, memory), 24/12)
                         }
                     }
                     
                 },
                 Instructions::RET(jmp)=>{
                     match jmp {
-                        JumpCond::True => self.ret(true, memory),
+                        JumpCond::True => (self.ret(true, memory),16),
                         JumpCond::Jump(jump) => {
                             let jump_condition = match jump {
                                 JumpTest::Carry => self.resgiters.f.carry,
@@ -1360,19 +1447,19 @@ impl CPU {
                                 JumpTest::Zero => self.resgiters.f.zero,
                                 JumpTest::NotZero => !self.resgiters.f.zero
                             };
-                            self.ret(jump_condition, memory)
+                            (self.ret(jump_condition, memory), 20/8)
                         }
                     }
                     
                 },
                 Instructions::RETI() => {
                     self.ime = true;
-                    self.ret(true, memory)
+                   ( self.ret(true, memory),16)
                 },
-                Instructions::NOP()=> self.pc.wrapping_add(1),
-                Instructions::HALT() => {self.is_halted = true; self.pc.wrapping_add(1)},
-                Instructions::DI() => {self.ime =false; self.pc.wrapping_add(1)},
-                Instructions::EI() => {self.ime =true; self.pc.wrapping_add(1)},
+                Instructions::NOP()=> (self.pc.wrapping_add(1),4),
+                Instructions::HALT() => {self.is_halted = true; (self.pc.wrapping_add(1),4)},
+                Instructions::DI() => {self.ime =false; (self.pc.wrapping_add(1),4)},
+                Instructions::EI() => {self.ime =true; (self.pc.wrapping_add(1),4)},
                 Instructions::RLCA() => {
                     let n = self.resgiters.a & 0x80;
                     self.resgiters.a = (self.resgiters.a <<1) | n;
@@ -1380,16 +1467,18 @@ impl CPU {
                     self.resgiters.f.carry = if n ==0 {false} else {true};
                     self.resgiters.f.half_carry = false;
                     self.resgiters.f.subtract =false;
-                    self.pc.wrapping_add(1)
+                    (self.pc.wrapping_add(1), 4)
                 },
                 Instructions::RLA() => {
+
                     let n = self.resgiters.a & 0x80;
                     self.resgiters.a = (self.resgiters.a <<1) | (if self.resgiters.f.carry {1} else {0});
                     self.resgiters.f.carry = if n ==0 {false} else {true};
                     self.resgiters.f.half_carry = false;
                     self.resgiters.f.subtract =false;
                     self.resgiters.f.zero = self.resgiters.a ==0;
-                    self.pc.wrapping_add(1)
+
+                    (self.pc.wrapping_add(1), 4)
                 },
                 Instructions::RRCA() => {
                     let n = self.resgiters.a & 0x01;
@@ -1398,7 +1487,7 @@ impl CPU {
                     self.resgiters.f.carry = if n ==0 {false} else {true};
                     self.resgiters.f.half_carry = false;
                     self.resgiters.f.subtract =false;
-                    self.pc.wrapping_add(1)
+                    (self.pc.wrapping_add(1), 4)
                 },
                 Instructions::RRA() => {
                     let n = self.resgiters.a & 0x01;
@@ -1407,7 +1496,7 @@ impl CPU {
                     self.resgiters.f.half_carry = false;
                     self.resgiters.f.subtract =false;
                     self.resgiters.f.zero = self.resgiters.a ==0;
-                    self.pc.wrapping_add(1)
+                    (self.pc.wrapping_add(1), 4)
                 },
                 Instructions::DAA() => {
                     let mut a = self.resgiters.a;
@@ -1426,7 +1515,7 @@ impl CPU {
                     self.resgiters.a = a;
 
 
-                    self.pc.wrapping_add(1)
+                    (self.pc.wrapping_add(1),4)
                 }
                 Instructions::RST(hexa)=> {
                     let hex : u16 = match hexa {
@@ -1440,12 +1529,13 @@ impl CPU {
                         RestartValue::H38 => 0x0038,
                     };
                     self.push(self.pc, memory);
-                    hex
+                    (hex, 16)
                 },
                 Instructions::STOP() => {
                     self.ime = false;
                     self.is_halted = true;
-                    self.pc.wrapping_add(1)
+                    self.is_stopped = true;
+                    (self.pc.wrapping_add(1), 4)
                 },
                 //Instructions avec prefixe
                 Instructions::RLC(target) => {
@@ -1518,82 +1608,87 @@ impl CPU {
                         _=> panic!("RLC target")
                     };
 
-                    self.pc.wrapping_add(1)
+                    match target {
+                        Target8::HL => (self.pc.wrapping_add(2), 16),
+                        _=> (self.pc.wrapping_add(2), 8),
+                    }
                 },
                 Instructions::RL(target) => {
 
                     match target {
                         Target8::A => {
                             let n = self.resgiters.a & 0x80;
-                            self.resgiters.a = (self.resgiters.a <<1) | (if self.resgiters.f.carry {1} else {0});
                             self.resgiters.f.zero = self.resgiters.a ==0;
                             self.resgiters.f.carry = if n ==0 {false} else {true};
                             self.resgiters.f.half_carry = false;
                             self.resgiters.f.subtract =false;
+                            self.resgiters.a = (self.resgiters.a <<1) | (if self.resgiters.f.carry {1} else {0});
                         },
                         Target8::B => {
                             let n = self.resgiters.b & 0x80;
-                            self.resgiters.b = (self.resgiters.b <<1) | (if self.resgiters.f.carry {1} else {0});
                             self.resgiters.f.zero = self.resgiters.b ==0;
                             self.resgiters.f.carry = if n ==0 {false} else {true};
                             self.resgiters.f.half_carry = false;
                             self.resgiters.f.subtract =false; 
+                            self.resgiters.b = (self.resgiters.b <<1) | (if self.resgiters.f.carry {1} else {0});
                         },
                         Target8::C => {
                             let n = self.resgiters.c & 0x80;
-                            self.resgiters.c = (self.resgiters.c <<1 )| (if self.resgiters.f.carry {1} else {0});
                             self.resgiters.f.zero = self.resgiters.c ==0;
                             self.resgiters.f.carry = if n ==0 {false} else {true};
                             self.resgiters.f.half_carry = false;
                             self.resgiters.f.subtract =false;
+                            self.resgiters.c = (self.resgiters.c <<1 )| (if self.resgiters.f.carry {1} else {0});
                         },
                         Target8::D => {
                             let n = self.resgiters.d & 0x80;
-                            self.resgiters.d = (self.resgiters.d <<1 )| (if self.resgiters.f.carry {1} else {0});
                             self.resgiters.f.zero = self.resgiters.d ==0;
                             self.resgiters.f.carry = if n ==0 {false} else {true};
                             self.resgiters.f.half_carry = false;
                             self.resgiters.f.subtract =false; 
+                            self.resgiters.d = (self.resgiters.d <<1 )| (if self.resgiters.f.carry {1} else {0});
                         }, 
                         Target8::H => {
                             let n = self.resgiters.h & 0x80;
-                            self.resgiters.h = (self.resgiters.h <<1) | (if self.resgiters.f.carry {1} else {0});
                             self.resgiters.f.zero = self.resgiters.h ==0;
                             self.resgiters.f.carry = if n ==0 {false} else {true};
                             self.resgiters.f.half_carry = false;
                             self.resgiters.f.subtract =false;
+                            self.resgiters.h = (self.resgiters.h <<1) | (if self.resgiters.f.carry {1} else {0});
                         },
                         Target8::L => {
                             let n = self.resgiters.l & 0x80;
-                            self.resgiters.l = (self.resgiters.l <<1) | (if self.resgiters.f.carry {1} else {0});
                             self.resgiters.f.zero = self.resgiters.l ==0;
                             self.resgiters.f.carry = if n ==0 {false} else {true};
                             self.resgiters.f.half_carry = false;
                             self.resgiters.f.subtract =false; 
+                            self.resgiters.l = (self.resgiters.l <<1) | (if self.resgiters.f.carry {1} else {0});
                         }, 
                         Target8::E => {
                             let n = self.resgiters.e & 0x80;
-                            self.resgiters.e = (self.resgiters.e <<1) | (if self.resgiters.f.carry {1} else {0});
                             self.resgiters.f.zero = self.resgiters.e ==0;
                             self.resgiters.f.carry = if n ==0 {false} else {true};
                             self.resgiters.f.half_carry = false;
                             self.resgiters.f.subtract =false;
+                            self.resgiters.e = (self.resgiters.e <<1) | (if self.resgiters.f.carry {1} else {0});
                         },
                         Target8::HL => {
                             let value = memory.read_byte(self.resgiters.get_hl() as usize);
                             let n = value & 0x80;
-                            memory.write_byte(self.resgiters.get_hl() as usize, value <<1 | (if self.resgiters.f.carry {1} else {0}));
                             self.resgiters.f.zero = memory.read_byte(self.resgiters.get_hl() as usize) ==0;
                             self.resgiters.f.carry = if n ==0 {false} else {true};
                             self.resgiters.f.half_carry = false;
                             self.resgiters.f.subtract =false; 
+                            memory.write_byte(self.resgiters.get_hl() as usize, value <<1 | (if self.resgiters.f.carry {1} else {0}));
                         },
                         _=> panic!("RL target")
                         
                     };
 
-                    self.pc.wrapping_add(1)
-
+                    match target {
+                        Target8::HL => (self.pc.wrapping_add(1), 16),
+                        _=> (self.pc.wrapping_add(1), 8),
+                    }
                 },
                 Instructions::RRC(target) => {
 
@@ -1666,7 +1761,10 @@ impl CPU {
                         },
                         _=> panic!("RRC target")
                     };
-                    self.pc.wrapping_add(1)
+                    match target {
+                        Target8::HL => (self.pc.wrapping_add(1), 16),
+                        _=> (self.pc.wrapping_add(1), 8),
+                    }
                 },
                 Instructions::RR(target) => {
 
@@ -1739,7 +1837,10 @@ impl CPU {
                         },
                         _=> panic!("RR target")
                     };
-                    self.pc.wrapping_add(1)
+                    match target {
+                        Target8::HL => (self.pc.wrapping_add(1), 16),
+                        _=> (self.pc.wrapping_add(1), 8),
+                    }                
                 },
                 Instructions::SLA(target) => {
 
@@ -1811,7 +1912,10 @@ impl CPU {
                         },
                         _=> panic!("SLA target")
                     };
-                    self.pc.wrapping_add(1)
+                    match target {
+                        Target8::HL => (self.pc.wrapping_add(1), 16),
+                        _=> (self.pc.wrapping_add(1), 8),
+                    }
                 },
                 Instructions::SRA(target) => {
 
@@ -1884,7 +1988,10 @@ impl CPU {
                         },
                         _=> panic!("RRC target")
                     };
-                    self.pc.wrapping_add(1)
+                    match target {
+                        Target8::HL => (self.pc.wrapping_add(1), 16),
+                        _=> (self.pc.wrapping_add(1), 8),
+                    }
                 }
                 Instructions::SRL(target) => {
   
@@ -1957,7 +2064,10 @@ impl CPU {
                         },
                         _=> panic!("RRC target")
                     };
-                    self.pc.wrapping_add(1)
+                    match target {
+                        Target8::HL => (self.pc.wrapping_add(1), 16),
+                        _=> (self.pc.wrapping_add(1), 8),
+                    }
                 }
                 Instructions::SWAP(target) => {
                     match target {
@@ -1974,8 +2084,10 @@ impl CPU {
                         },
                         _=> panic!("SWAP target"),
                     };
-
-                    self.pc.wrapping_add(1)
+                    match target {
+                        Target8::HL => (self.pc.wrapping_add(1), 16),
+                        _=> (self.pc.wrapping_add(1), 8),
+                    }
                 }
                 Instructions::BIT(n,target ) => {
 
@@ -1996,7 +2108,10 @@ impl CPU {
                         panic!("BIT n")
                     }
 
-                    self.pc.wrapping_add(1)
+                    match target {
+                        Target8::HL => (self.pc.wrapping_add(1), 16),
+                        _=> (self.pc.wrapping_add(1), 8),
+                    }
                 },   
                 Instructions::SET(n,target ) => {
 
@@ -2017,7 +2132,10 @@ impl CPU {
                         panic!("BIT n")
                     }
 
-                    self.pc.wrapping_add(1)
+                    match target {
+                        Target8::HL => (self.pc.wrapping_add(1), 16),
+                        _=> (self.pc.wrapping_add(1), 8),
+                    }
                 },   
                 Instructions::RES(n,target ) => {
 
@@ -2038,21 +2156,22 @@ impl CPU {
                         panic!("BIT n")
                     }
 
-                    self.pc.wrapping_add(1)
+                    match target {
+                        Target8::HL => (self.pc.wrapping_add(1), 16),
+                        _=> (self.pc.wrapping_add(1), 8),
+                    }
                 },
             }
         } else {
-            self.pc
+            (self.pc,40)
         }
     }
 
-    pub fn step(&mut self, memory : &mut MemoryBus){
+    pub fn step(&mut self, memory : &mut MemoryBus)-> u64{
         //On récupère l'instruction à faire depuis le bus.
         let mut instruction_byte = memory.read_byte(self.pc as usize );
-        if self.pc != 0xe9 {
-          println!("pc : {:02x} instruction {:02x}", self.pc, instruction_byte);
+        println!("pc : instruction {:02x}", instruction_byte);
 
-        }
 
         //On vérifie si l'instruction est un préfixe.
         let prefixed = instruction_byte== 0xCB;
@@ -2064,7 +2183,7 @@ impl CPU {
         }
 
         //On vérifie que l'insturction existe.
-        let next_pc = if let Some(instruction) = Instructions::from_bytes(instruction_byte, prefixed) {
+        let (next_pc, cycles) = if let Some(instruction) = Instructions::from_bytes(instruction_byte, prefixed) {
             self.execute(instruction, memory)
         } else {
             panic!("Pas d'instuction trouvée depuis l'adresse 0x{:02X}", instruction_byte);
@@ -2072,7 +2191,7 @@ impl CPU {
 
         //On change le pointeur pour l'execution suivante.
         self.pc = next_pc;
-
+        cycles
     }  
 
     pub fn add(&mut self, value: u8) -> u8{

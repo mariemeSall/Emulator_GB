@@ -38,16 +38,16 @@ impl GameBoy {
         }
        
     }
-    pub fn step(&mut self) {
+    pub fn step(&mut self) -> u64{
+        let cycles = self.cpu.step(&mut self.memory_bus);
         // Exécutez une étape de l'émulateur ici
         // Par exemple, vous pouvez mettre à jour le CPU, le GPU, la mémoire, etc
         if self.cpu.pc == 0x100 {
             self.memory_bus.bios_run=false;
         }
         self.gpu.step(&mut self.memory_bus);
-        self.cpu.step(&mut self.memory_bus);
         
-
+        cycles
        
     }
 
@@ -59,9 +59,13 @@ impl GameBoy {
     
         self.draw_screen(canvas);
         canvas.present();  
-    
+       // std::thread::sleep(Duration::new(0, 1_000_000_000/60 ));
+
     }
-    
+    pub fn get_speed(&mut self) -> u64 {
+		1 << (self.memory_bus.read_byte(0xFF4D) >> 7)
+	}
+
     pub fn run(&mut self) {
         let sdl_context = sdl2::init().unwrap();
         let video_subsystem = sdl_context.video().unwrap();
@@ -113,10 +117,10 @@ impl GameBoy {
         for pixel_y in 0..144 {
             for pixel_x in 0..160 {
                 let pixel_color = match screen[pixel_y][pixel_x] {
-                    PixelColorVal::Zero => Color::BLACK,
-                    PixelColorVal::One => Color { r: 190, g: 190, b: 190, a: 255 }, // light grey
-                    PixelColorVal::Two => Color { r: 80, g: 80, b: 80, a: 255 }, // dark grey
-                    PixelColorVal::Three => Color::WHITE,
+                    PixelColorVal::Three => Color::BLACK,
+                    PixelColorVal::Two => Color { r: 190, g: 190, b: 190, a: 255 }, // light grey
+                    PixelColorVal::One => Color { r: 80, g: 80, b: 80, a: 255 }, // dark grey
+                    PixelColorVal::Zero => Color::WHITE,
                 };
                 if self.memory_bus.bios_run {
 

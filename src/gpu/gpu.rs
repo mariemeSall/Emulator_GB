@@ -35,6 +35,7 @@ impl PixelColorVal {
     pub fn color(value:u8, mode: u8)->PixelColorVal{
         let (hi, lo) = (2*value+1, 2*value);
 		let color = ((mode & (1 << hi)) >> (hi-1)) | ((mode & (1 << lo)) >> lo);  
+       // println!("color {}, value {}", color, value);
         match color {
             3 => PixelColorVal::Three,
             2 => PixelColorVal::Two,
@@ -79,12 +80,14 @@ impl GPU {
         //update le lcdc 
         self.lcdc.write(memory.read_byte(LCDC));
 
+       // println!("LCDC : {:02X}", memory.read_byte(LCDC));
         //Si la ligne est incluse dans l'affichage (<144), on la dessine
         if line<144 {
+            
             self.draw_tiles(memory);
             //Si le lcdc autorise les objets, on dessine les objets
             if self.lcdc.sprite_display_enable {
-                println!("object");
+               // println!("object");
                 self.draw_objects(memory);
             }
         }
@@ -217,12 +220,14 @@ impl GPU {
             let tile_line = (y_offset%8 )as u16;
 
             let address = (tile + tile_line*2) as usize;
+            //println!("ADDRESS BG {:02X}", address);
             let lsb = memory.read_byte(address);
             let msb = memory.read_byte(address+1);
 
             let i = 7-x_offset%8;
 
             let value = if i ==0 {
+               // println!("I == 0");
                (lsb&1)|(msb&1<<1)
             } else {
                 ((lsb&(1<<i))>>i) | ((msb&(1<<i))>>(i-1)) 
@@ -239,7 +244,6 @@ impl GPU {
 
     pub fn draw_objects(&mut self, memory : &mut MemoryBus){
         self.lcdc.write(memory.read_byte(LCDC));
-
         for object in 0..40 {
             //Dans l'OAM chaque objet utilise 4 octets
             let offset = object*4;
@@ -258,7 +262,7 @@ impl GPU {
 
                 let object_line = if attributes.y_flip{object_lenght+y - line -1}else {line - y};
                 let address = VRAM_START + (tile_index as usize) *16 + (object_line as usize)*2;
-
+                //println!("ADDRESS OBJ {:02X}", address);
                 let lsb = memory.read_byte(address);
                 let msb = memory.read_byte(address+1);
 
@@ -280,7 +284,7 @@ impl GPU {
                     let line =line as usize;
                     let pixel = pixel as usize;
 
-
+                    //println!("VALUE OBJ {}", value);
                     let palette = if attributes.dmg_pallette {OBP1}else {OBP0};
                     if pixel<160 && !self.bg_prio( line, pixel, attributes.priority){
                         self.screen[line][pixel] = PixelColorVal::color(value, memory.read_byte(palette));

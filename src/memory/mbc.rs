@@ -120,12 +120,13 @@ impl MBC1 {
 
 pub struct ROM_ONLY {
     pub rom : [u8; 0x8000],
+    pub ram : [u8; 0x2000],
 
 }
 
 impl ROM_ONLY {
     pub fn new() -> ROM_ONLY {
-        ROM_ONLY { rom: [0; 0x8000] }
+        ROM_ONLY { rom: [0; 0x8000], ram: [0;0x2000] }
     }
 }
 
@@ -136,11 +137,21 @@ impl MBC for ROM_ONLY {
     }
 
     fn read_byte(&mut self, address: usize) ->u8 {
-        self.rom[address]
+        if address>=0xA000{
+            self.ram[address - 0xA000]
+
+        } else {
+            self.rom[address] 
+        } 
     }
 
     fn write_byte(&mut self, address: usize, value:u8) {
-        self.rom[address] = value;
+        if address>=0xA000{
+            self.ram[address - 0xA000] = value;
+
+        } else {
+            self.rom[address] = value;
+        }
     }
 
 }
