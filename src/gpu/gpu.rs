@@ -1,19 +1,22 @@
 pub const VRAM_START: usize = 0x8000;   //première adresse consacrée aux tuiles
 pub const VRAM_END: usize = 0x9FFF;     //dernière adresse consacrée aux tuiles
 pub const VRAM_SIZE: usize = VRAM_END - VRAM_START + 1;     //taille utilisée par les données des tuiles
-pub const LCDC_ADDR: usize = 0xFF40;  
-//addresse du lcdc
-pub const OAM: usize = 0xFE00; //première adresse de l'OAM
-pub const LINE: usize = 0xFF44; //adresse de la ligne à dessiner
+pub const LCDC:usize = 0xFF40;
+pub const LCDSTAT: u16 = 0xFF41; 
 pub const SCROLLX: usize = 0xFF43;
 pub const SCROLLY: usize = 0xFF42;
+pub const LINE: usize = 0xFF44; //adresse de la ligne à dessiner
 pub const WINDOWX: usize = 0xFF4B;
 pub const WINDOWY: usize = 0xFF4A;
-pub const LCDC:usize = 0xFF40;
+
+pub const OAM: usize = 0xFE00; //première adresse de l'OAM
+pub const OAM_END: usize = 0xFE9F;
 pub const BGP: usize = 0xFF47;
 pub const OBP0: usize = 0xFF48;
 pub const OBP1: usize = 0xFF49;
+pub const IFLAG: u16 = 0xFF0F;
 
+pub const IENABLE: u16 = 0xFFFF;
 
 use crate::gpu::gameboy::SCALE_FACTOR;
 use crate::memory::memory::MemoryBus;
