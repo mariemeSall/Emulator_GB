@@ -1,5 +1,3 @@
-pub const JOYPAD_ADDR: u16 = 0xFF00;
-
 pub enum JoypadKey{
     Left,
     Right,
