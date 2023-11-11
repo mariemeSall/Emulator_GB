@@ -73,7 +73,7 @@ impl GameBoy {
         // Efface l'état actuel des touches
         self.keypad.p14 |= 0x0F;
         self.keypad.p15 |= 0x0F;
-
+    
         // Met à jour l'état des touches en fonction des entrées utilisateur
         for event in event_pump.poll_iter() {
             match event {
@@ -88,7 +88,10 @@ impl GameBoy {
                                 Keycode::A => self.keypad.keyDown(JoypadKey::A),
                                 Keycode::B => self.keypad.keyDown(JoypadKey::B),
                                 Keycode::S => self.keypad.keyDown(JoypadKey::Select),
-                                Keycode::Space => self.keypad.keyDown(JoypadKey::Start),
+                                Keycode::X => self.keypad.keyDown(JoypadKey::Start),
+                                Keycode::Space => {
+                                    self.cpu.is_halted = !self.cpu.is_halted;
+                                }
                                 _ => {}
                             }
                         }
@@ -109,60 +112,18 @@ impl GameBoy {
                         }
                     }
                 }
+                Event::Quit { .. } => {
+                    self.screen_is_open = false;
+                    self.done = true;
+                    self.cpu.is_halted = true;
+                },
                 _ => {}
             }
         }
-
-        //Met à jour le registre JOYPAD avec l'état des touches
+    
+        // Met à jour le registre JOYPAD avec l'état des touches
         self.memory_bus.write_byte(0xFF00, self.keypad.read_interrupt());
     }
-
-    pub fn run(&mut self) {
-        let sdl_context = sdl2::init().unwrap();
-        let video_subsystem = sdl_context.video().unwrap();
-        let window = video_subsystem
-            .window("Game Boy Emulator", SCREEN_WIDTH * SCALE_FACTOR, SCREEN_HEIGHT * SCALE_FACTOR)
-            .position_centered()
-            .build()
-            .unwrap();
-        let mut canvas = window.into_canvas().build().unwrap();
-        let mut event_pump = sdl_context.event_pump().unwrap();
-        self.screen_is_open = true;
-        
-        'running: loop {
-            self.update_key_state(&mut event_pump);
-
-            for event in event_pump.poll_iter() {
-                match event {
-                    Event::Quit { .. } => {
-                        self.screen_is_open = false;
-                        break 'running;
-                    }
-                    Event::KeyDown {
-                        keycode: Some(Keycode::Escape),
-                        ..
-                    } => {
-                        self.screen_is_open = false; //Ferme la fenêtre
-                        break 'running;
-                    }
-                    _ => {}
-                }
-            }
-
-            if !self.screen_is_open {
-                break 'running; //Sort de la boucle si la fenêtre est fermée
-            }
-
-            self.step();
-
-            //Met à jour l'affichage sur l'écran SDL2
-            self.draw_screen(&mut canvas);
-            canvas.present();
-
-            std::thread::sleep(Duration::new(0, 1_000_000_000 / 60));
-        }
-    }
-
 
     pub fn draw_screen(&mut self, canvas: &mut Canvas<Window>){
         let screen = self.gpu.screen;
