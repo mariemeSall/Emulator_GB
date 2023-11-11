@@ -81,14 +81,14 @@ impl GameBoy {
                     if !repeat {
                         if let Some(keycode) = keycode {
                             match keycode {
-                                Keycode::Right => self.keypad.keyDown(JoypadKey::Right),
-                                Keycode::Left => self.keypad.keyDown(JoypadKey::Left),
-                                Keycode::Up => self.keypad.keyDown(JoypadKey::Up),
-                                Keycode::Down => self.keypad.keyDown(JoypadKey::Down),
-                                Keycode::A => self.keypad.keyDown(JoypadKey::A),
-                                Keycode::B => self.keypad.keyDown(JoypadKey::B),
-                                Keycode::S => self.keypad.keyDown(JoypadKey::Select),
-                                Keycode::X => self.keypad.keyDown(JoypadKey::Start),
+                                Keycode::Right => self.keypad.key_down(JoypadKey::Right),
+                                Keycode::Left => self.keypad.key_down(JoypadKey::Left),
+                                Keycode::Up => self.keypad.key_down(JoypadKey::Up),
+                                Keycode::Down => self.keypad.key_down(JoypadKey::Down),
+                                Keycode::A => self.keypad.key_down(JoypadKey::A),
+                                Keycode::B => self.keypad.key_down(JoypadKey::B),
+                                Keycode::S => self.keypad.key_down(JoypadKey::Select),
+                                Keycode::X => self.keypad.key_down(JoypadKey::Start),
                                 Keycode::Space => {
                                     self.cpu.is_halted = !self.cpu.is_halted;
                                 }
@@ -100,14 +100,14 @@ impl GameBoy {
                 Event::KeyUp { keycode, .. } => {
                     if let Some(keycode) = keycode {
                         match keycode {
-                            Keycode::Right => self.keypad.keyUp(JoypadKey::Right),
-                            Keycode::Left => self.keypad.keyUp(JoypadKey::Left),
-                            Keycode::Up => self.keypad.keyUp(JoypadKey::Up),
-                            Keycode::Down => self.keypad.keyUp(JoypadKey::Down),
-                            Keycode::A => self.keypad.keyUp(JoypadKey::A),
-                            Keycode::B => self.keypad.keyUp(JoypadKey::B),
-                            Keycode::S => self.keypad.keyUp(JoypadKey::Select),
-                            Keycode::Space => self.keypad.keyUp(JoypadKey::Start),
+                            Keycode::Right => self.keypad.key_up(JoypadKey::Right),
+                            Keycode::Left => self.keypad.key_up(JoypadKey::Left),
+                            Keycode::Up => self.keypad.key_up(JoypadKey::Up),
+                            Keycode::Down => self.keypad.key_up(JoypadKey::Down),
+                            Keycode::A => self.keypad.key_up(JoypadKey::A),
+                            Keycode::B => self.keypad.key_up(JoypadKey::B),
+                            Keycode::S => self.keypad.key_up(JoypadKey::Select),
+                            Keycode::Space => self.keypad.key_up(JoypadKey::Start),
                             _ => {}
                         }
                     }

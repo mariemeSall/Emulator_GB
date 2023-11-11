@@ -39,7 +39,7 @@ impl Keypad {
         }
     }
 
-    pub fn keyDown(&mut self, key: JoypadKey) {
+    pub fn key_down(&mut self, key: JoypadKey) {
         match key {
             JoypadKey::Right => self.p14 &= !(1 << 0), //permet de mettre le bit à la position 0 à 0
             JoypadKey::Left => self.p14 &= !(1 << 1),
@@ -53,7 +53,7 @@ impl Keypad {
         self.interrupted = true;
     }
 
-    pub fn keyUp(&mut self, key: JoypadKey) {
+    pub fn key_up(&mut self, key: JoypadKey) {
         match key {
             JoypadKey::Right => self.p14 |= 1 << 0, //met un 1 à la position choisie
             JoypadKey::Left => self.p14 |= 1 << 1,
