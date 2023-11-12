@@ -1,10 +1,9 @@
-use std::time::Duration;
 
-use crate::memory::{memory::MemoryBus, self};
+use crate::memory::memory::MemoryBus;
 
 use super::register::Resgisters;
-const IE :usize = 0xFFFF;
-const IF :usize = 0xFF0F;
+pub const IE :usize = 0xFFFF;
+pub const IF :usize = 0xFF0F;
 pub struct CPU {
     pub resgiters: Resgisters,
     pub pc: u16,
@@ -12,6 +11,9 @@ pub struct CPU {
     pub is_halted: bool,
     pub is_stopped: bool,
     pub ime: bool,
+    pub ime_set:bool,
+    pub ime_rest: bool,
+    temp:bool,
 }
 
 
@@ -669,9 +671,12 @@ impl CPU {
             is_halted : false,
             is_stopped: false,
             ime: true,
+            ime_set: false,
+            ime_rest: false,
             resgiters : Resgisters::new(),
             sp: 0xFFFE,
             pc:  0x0000,
+            temp:false,
         }
     }
 
@@ -738,6 +743,7 @@ impl CPU {
                                 },
                                 Target16::DE => {
                                     let value = self.resgiters.get_de();
+                                  
                                     self.add_hl(value);
                                 },
                                 Target16::HL => {
@@ -1103,9 +1109,9 @@ impl CPU {
                         },
                         TargetType::HL(t16)=>{
                             match t16 {
-                                Target16::BC => self.resgiters.set_bc(self.resgiters.get_bc() - 1) ,
-                                Target16::DE => self.resgiters.set_de(self.resgiters.get_de() - 1),
-                                Target16::HL => self.resgiters.set_hl(self.resgiters.get_hl() - 1),
+                                Target16::BC => self.resgiters.set_bc(self.resgiters.get_bc().wrapping_sub(1)) ,
+                                Target16::DE => self.resgiters.set_de(self.resgiters.get_de().wrapping_sub(1)),
+                                Target16::HL => self.resgiters.set_hl(self.resgiters.get_hl().wrapping_sub(1)),
                                 Target16::SP => self.sp -=1,
                                 _ => panic!("DEC target 16")
                             }
@@ -1270,8 +1276,13 @@ impl CPU {
                                 },
                                 LoadByteTarget::B => self.resgiters.b = source_value,
                                 LoadByteTarget::C => self.resgiters.c = source_value,
-                                LoadByteTarget::D => {self.resgiters.d = source_value},
-                                LoadByteTarget::E => {self.resgiters.e = source_value},
+                                LoadByteTarget::D => {
+                                   
+                                    self.resgiters.d = source_value},
+                                LoadByteTarget::E => {
+                                    
+                                    
+                                    self.resgiters.e = source_value},
                                 LoadByteTarget::H => self.resgiters.h = source_value,
                                 LoadByteTarget::L => self.resgiters.l = source_value,
                                 LoadByteTarget::HL => {memory.write_byte(self.resgiters.get_hl() as usize, source_value)},
@@ -1353,6 +1364,7 @@ impl CPU {
                                 LoadASource::C => memory.read_byte(((self.resgiters.c as u16) | 0xFF00)as usize),
                                 LoadASource::A => self.resgiters.a,
                                 LoadASource::A8 => {let n = memory.read_byte((self.pc +1)as usize);
+                                    
                                     memory.read_byte(((n as u16)|0xFF00)as usize)
                                 },
                                 LoadASource::A16 => {
@@ -1365,11 +1377,14 @@ impl CPU {
 
                             match target {
                                 LoadATarget::A => {
+
+                                    if self.pc == 0x2820{
+                                    }
                                     self.resgiters.a = source_value
                                 },
                                 LoadATarget::C => memory.write_byte(((self.resgiters.c as u16) | 0xFF00) as usize, source_value),
-                                LoadATarget::A8 => {
-                                    let n = memory.read_byte((self.pc +1)as usize);
+                                LoadATarget::A8 => {                                
+                                   
                                     let address = ((memory.read_byte((self.pc +1)as usize) as u16)|0xFF00) as usize; 
                                     self.pc = self.pc.wrapping_add(1);
                                     memory.write_byte(address, source_value)},
@@ -1421,7 +1436,7 @@ impl CPU {
                     match target {
                         StackTarget::BC => self.resgiters.set_bc(pop),
                         StackTarget::DE => self.resgiters.set_de(pop),
-                        StackTarget::HL => self.resgiters.set_hl(pop),
+                        StackTarget::HL => {self.resgiters.set_hl(pop)},
                         StackTarget::AF => self.resgiters.set_af(pop),
                     };
                    ( self.pc.wrapping_add(1), 12)
@@ -1457,13 +1472,14 @@ impl CPU {
                     
                 },
                 Instructions::RETI() => {
-                    self.ime = true;
-                   ( self.ret(true, memory),16)
+                    let ret = self.ret(true,memory);
+                    self.ime_set=true;
+                   ( ret,16)
                 },
                 Instructions::NOP()=> (self.pc.wrapping_add(1),4),
                 Instructions::HALT() => {self.is_halted = true; (self.pc.wrapping_add(1),4)},
-                Instructions::DI() => {self.ime =false; (self.pc.wrapping_add(1),4)},
-                Instructions::EI() => {self.ime =true; (self.pc.wrapping_add(1),4)},
+                Instructions::DI() => {self.ime_rest =true; (self.pc.wrapping_add(1),4)},
+                Instructions::EI() => {self.ime_set =true; (self.pc.wrapping_add(1),4)},
                 Instructions::RLCA() => {
                     let n = self.resgiters.a & 0x80;
                     self.resgiters.a = (self.resgiters.a <<1) | n;
@@ -2178,24 +2194,34 @@ impl CPU {
         let mut interupt = false;
         if self.ime {
             for i in 0..5 {
-                if memory.read_byte(IE)&memory.read_byte(IF)& (1<<i)>0{
+                if (memory.read_byte(IE)& memory.read_byte(IF) & (1<<i))>0{
                     self.ime = false;
                     let req = memory.read_byte(IF);
                     memory.write_byte(IF, req & !(1 << i));
-
                     self.push(self.pc, memory);
                     self.pc = 0x40 + 0x08*i;
                     interupt = true;
                 }
             }
         }
+
+        if self.ime_set {
+            self.ime=true;
+            self.ime_set=false;
+        }
+        if self.ime_rest {
+            self.ime=false;
+            self.ime_rest=false;
+        }
+
         interupt
     }
     pub fn step(&mut self, memory : &mut MemoryBus)-> u64{
-      
         //On récupère l'instruction à faire depuis le bus.
-        let mut instruction_byte = memory.read_byte(self.pc as usize );     
+        let mut instruction_byte = memory.read_byte(self.pc as usize );  
+       
         
+       
 
         //On vérifie si l'instruction est un préfixe.
         let prefixed = instruction_byte== 0xCB;
@@ -2213,7 +2239,6 @@ impl CPU {
             panic!("Pas d'instuction trouvée depuis l'adresse 0x{:02X}", instruction_byte);
         };
 
-       
         //On change le pointeur pour l'execution suivante.
         self.pc = next_pc;
 
@@ -2352,7 +2377,7 @@ impl CPU {
     pub fn jr(&self, condition: bool, memory : &mut MemoryBus) ->u16{
         if condition {
             let n = memory.read_byte((self.pc + 1) as usize) as i8;
-            self.pc.wrapping_add(2).wrapping_add_signed(n as i16)
+            ((self.pc as i32 +2) + n as i32) as u16
         } else {
             self.pc.wrapping_add(2)
         }
@@ -2369,7 +2394,9 @@ impl CPU {
 
         let (sp_1,_) = self.sp.overflowing_sub(1) ;
         let (sp_2, _) = self.sp.overflowing_sub(2);
-      
+        
+       
+        
         memory.write_byte(sp_1 as usize , higher);
         memory.write_byte( sp_2 as usize, lower);
         self.sp = self.sp.wrapping_sub(2);
@@ -2389,6 +2416,7 @@ impl CPU {
         let next_program = (lower as u16) | ((higher as u16)<<8);
         if jump {
             self.push(self.pc.wrapping_add(3), memory);
+          
             next_program
         } else {
             

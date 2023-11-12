@@ -1,6 +1,6 @@
 use std::fs::File;
 
-use super::mbc::{MBC1, MBC, ROM_ONLY};
+use super::mbc::{MBC, ROM_ONLY};
 
 pub trait MemoryUnit {
     const VRAM_START: usize ;
@@ -126,10 +126,7 @@ impl MemoryBus {
     }
 
     pub fn write_byte(&mut self, address: usize, value: u8){
-        if address==0x2b3 {
-            println!("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
-            println!(" valeur {:02x}", value);
-        }
+        
         match address {
             0x0000..=0x7FFF |0xA000..=0xBFFF=> {
                 self.mbc.write_byte(address, value);

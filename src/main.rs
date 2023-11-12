@@ -3,10 +3,9 @@ pub mod cpu;
 pub mod gpu;
 pub mod memory;
 use gpu::gameboy::*;
-use sdl2::{video::Window, EventPump, event::Event, keyboard::Keycode};
 
-use crate::gpu::{gameboy::GameBoy, gpu::LINE};
-use std::{fs::File, time::Duration};
+use crate::gpu::gameboy::GameBoy;
+use std::fs::File;
 extern crate fps_clock;
 
 

@@ -42,7 +42,6 @@ impl PixelColorVal {
     pub fn color(value:u8, mode: u8)->PixelColorVal{
         let (hi, lo) = (2*value+1, 2*value);
 		let color = ((mode & (1 << hi)) >> (hi-1)) | ((mode & (1 << lo)) >> lo);  
-       // println!("color {}, value {}", color, value);
         match color {
             3 => PixelColorVal::Three,
             2 => PixelColorVal::Two,
@@ -65,7 +64,6 @@ pub fn black_tile() -> Tile{
 }
 
 pub struct GPU{
-    pub tile_set: [Tile; 384],
     pub screen: [[PixelColorVal; 160];144],
     pub bg: [[u8;160];144],
     pub lcdc: LCDC,
@@ -75,7 +73,6 @@ pub struct GPU{
 impl GPU {
     pub fn new() -> Self {
         GPU {
-            tile_set: [black_tile(); 384],
             screen: [[PixelColorVal::Zero;160];144],
             bg: [[0; 160]; 144],
             lcdc: LCDC::new(),
@@ -99,14 +96,13 @@ impl GPU {
             self.sl = SCANLINE_TOTAL_TIME;
             //Si la ligne est incluse dans l'affichage (<144), on la dessine
             if line ==144 {
-                cpu.request(memory, 0);
+                //cpu.request(memory, 0);
 
             }else if line<144 {
                 
                 self.draw_tiles(memory);
                 //Si le lcdc autorise les objets, on dessine les objets
                 if self.lcdc.sprite_display_enable {
-                   // println!("object");
                     self.draw_objects(memory);
                 }
             }
@@ -122,19 +118,24 @@ impl GPU {
         let mut req = false;
         self.lcdc.write(memory.read_byte(LCDC));
         if !self.lcdc.display_enable {
+           
             self.sl = SCANLINE_TOTAL_TIME;
             memory.write_byte(LINE,0);
             stat = (stat & 0xFC) | 0;
         } else if line >144 {
+           
             stat = (stat & 0xFC) | 1;
             req = (stat&(1<<4))>0;
         } else if self.sl>= SCANLINE_MODE2_OVER {
+            
             stat = (stat & 0xFC)|2;
             req = (stat&(1<<5))>0;
 
         } else if self.sl >= SCANLINE_MODE3_OVER {
+            
             stat = (stat &0xFC) |3;
         } else {
+            
             stat = stat & 0xFC;
             req = (stat & (1<<3))>0;
         }
@@ -158,91 +159,6 @@ impl GPU {
     }
 
     
-
-    pub fn generate_tile_set(&mut self, memory : &mut MemoryBus) {
-
-        for i in VRAM_START..=VRAM_END {
-            self.write_vram(memory, i)
-        }
-    }
-   
-    pub fn write_vram(&mut self,  memory: &mut MemoryBus, address: usize) {
-        if address-VRAM_START >= 1800 {
-            return;
-        }
-
-        //Une ligne de tuiles est encodée sur deux 2 bytes, le premier octet est toujours une adresse paire
-        //En utilisant un & avec 0xFFFE, on obtient l'adresse du premier octet
-        let normalized_index = address & 0xFFFE;
-
-        //Les 2 bytes de la ligne de tuiles
-        let byte1 = memory.read_vram(normalized_index , false);
-        let byte2 = memory.read_vram(normalized_index + 1, false);
-
-        //Une tuile mesure 16 octets au total
-        let tile_index = (address-VRAM_START) / 16;
-
-        //Tous les deux octets correspond à une nouvelle ligne.
-        let row_index = ((address-VRAM_START) % 16) / 2;
-
-        //Boucle pour obtenir les 8 pixels qui composent une ligne donnée
-        for pixel_index in 0..8 {
-            // 1111 1111
-            // 0123 4567
-            //Masque pour mettre à 0 les bits qui ne servent pas au codage du pixel
-            let mask = 1 << (7 - pixel_index);
-            let lsb = byte1 & mask;
-            let msb = byte2 & mask;
-            
-            //Correspondance des valeurs des bits et des couleurs
-            let value = match (lsb != 0, msb != 0) {
-                (true, true) => PixelColorVal::Three,
-                (false, true) => PixelColorVal::Two,
-                (true, false) => PixelColorVal::One,
-                (false, false) => PixelColorVal::Zero,
-            };
-
-            //Affecte la valeur du pixel dans le tableau de tuiles.
-            self.tile_set[tile_index][row_index][pixel_index] = value;
-            
-        }
-
-        /*for i in 0 .. 8 {
-            self.tile_set[tile_index][i][i] = PixelColorVal::Two;
-        }*/
-    }
-
-    pub fn draw_tile_set(&mut self, canvas: &mut Canvas<Window>) {
-        // Loop a travers tile_set
-        for tile_index in 0..384 {
-            for row_index in 0..8 {
-                for pixel_index in 0..8 {
-                    // Determine la couleur du pixel selon la valeur
-                    let pixel_color = match self.tile_set[tile_index][row_index][pixel_index] {
-                        PixelColorVal::Zero => Color::BLACK,
-                        PixelColorVal::One => Color { r: 190, g: 190, b: 190, a: 255 }, // light grey
-                        PixelColorVal::Two => Color { r: 80, g: 80, b: 80, a: 255 }, // dark grey
-                        PixelColorVal::Three => Color::WHITE,
-                    };
-
-                    // Calcule les coordonnées pour dessiner le pixel
-                    let x = (tile_index % 20) * 8 + pixel_index;
-                    let y = (tile_index / 20) * 8 + row_index;
-
-                    //Dessine le pixel sur le canvas
-                    canvas.set_draw_color(pixel_color);
-                    canvas
-                        .fill_rect(Rect::new(
-                            (x as i32) * SCALE_FACTOR as i32,
-                            (y as i32) * SCALE_FACTOR as i32,
-                            SCALE_FACTOR as u32,
-                            SCALE_FACTOR as u32,
-                        ))
-                        .expect("Failed to draw pixel.");
-                }
-            }
-        }
-    }
 
     pub fn draw_tiles(&mut self, memory : &mut MemoryBus){
         self.lcdc.write(memory.read_byte(LCDC));
@@ -293,7 +209,6 @@ impl GPU {
             let i = 7-x_offset%8;
 
             let value = if i ==0 {
-               // println!("I == 0");
                (lsb&1)|(msb&1<<1)
             } else {
                 ((lsb&(1<<i))>>i) | ((msb&(1<<i))>>(i-1)) 
@@ -328,7 +243,6 @@ impl GPU {
 
                 let object_line = if attributes.y_flip{object_lenght+y - line -1}else {line - y};
                 let address = VRAM_START + (tile_index as usize) *16 + (object_line as usize)*2;
-                //println!("ADDRESS OBJ {:02X}", address);
                 let lsb = memory.read_byte(address);
                 let msb = memory.read_byte(address+1);
 
@@ -350,7 +264,6 @@ impl GPU {
                     let line =line as usize;
                     let pixel = pixel as usize;
 
-                    //println!("VALUE OBJ {}", value);
                     let palette = if attributes.dmg_pallette {OBP1}else {OBP0};
                     if pixel<160 && !self.bg_prio( line, pixel, attributes.priority){
                         self.screen[line][pixel] = PixelColorVal::color(value, memory.read_byte(palette));
@@ -377,42 +290,7 @@ impl GPU {
     }
 
 
-   /*  fn majAffichage(&mut self) {
-        if self.lcdc.display_enable {
-            //Affiche le contenu à l'écran en fonction des réglages du LCDC
-            if self.lcdc.bg_display_enable {
-                //Effectue le rendu du fond en utilisant la carte de tuiles appropriée (bit 3)
-                let bg_tile_map: i32;
-                if self.lcdc.bg_tile_map == 0 {
-                    bg_tile_map = 0x9800 
-                } else { 
-                    bg_tile_map = 0x9C00 
-                };
 
-                let bg_and_window_tile_data: i32;
-                if self.lcdc.bg_and_window_tile_data == 0 { 
-                    bg_and_window_tile_data = 0x8800 
-                } else { 
-                    bg_and_window_tile_data = 0x8000 
-                };
-                // Utilisez le tile_data (bit 4) pour accéder aux données de tuiles du fond (VRAM)
-
-                // Effectuez le rendu du fond en utilisant les coordonnées x et y (position de l'écran)
-
-                // Vous pouvez utiliser d'autres informations du LCDC pour personnaliser davantage le rendu du fond
-            }
-
-            // Vérifiez si l'affichage des sprites est activé (bit 1).
-            if self.lcdc.sprite_display_enable {
-                // Effectuez le rendu des sprites en fonction des coordonnées des sprites dans OAM
-
-                // Vous pouvez également utiliser la taille des sprites (bit 2) pour déterminer la hauteur des sprites
-
-                // Personnalisez davantage le rendu des sprites en fonction des autres bits du LCDC
-            }
-        }
-    }
- */
 }
 
 pub struct Attributes {

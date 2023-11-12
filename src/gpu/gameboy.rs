@@ -51,9 +51,11 @@ impl GameBoy {
         }
         self.gpu.step(&mut self.memory_bus, &mut self.cpu, cycles as i16);
         self.timer.step(cycles as i16,&mut self.memory_bus, &mut self.cpu);
-        if self.cpu.interup_step(&mut self.memory_bus){
-            self.cpu.is_halted = false;
+       
+       if self.cpu.interup_step(&mut self.memory_bus){
+           self.cpu.is_halted = false;
         }
+        
         
         cycles
        
@@ -140,10 +142,7 @@ impl GameBoy {
                     PixelColorVal::One => Color { r: 80, g: 80, b: 80, a: 255 }, // dark grey
                     PixelColorVal::Zero => Color::WHITE,
                 };
-                if self.memory_bus.bios_run {
 
-                    //println!("DRAW");
-                }
                  //Dessine le pixel sur le canvas
                 canvas.set_draw_color(pixel_color);
                 canvas
@@ -160,38 +159,7 @@ impl GameBoy {
 
     }
 
-    pub fn draw_tile_set(&mut self, canvas: &mut Canvas<Window>) {
-        // Loop a travers tile_set
-        for tile_index in 0..384 {
-            for row_index in 0..8 {
-                for pixel_index in 0..8 {
-                    // Determine la couleur du pixel selon la valeur
-                    let pixel_color = match self.gpu.tile_set[tile_index][row_index][pixel_index] {
-                        PixelColorVal::Zero => Color::BLACK,
-                        PixelColorVal::One => Color { r: 190, g: 190, b: 190, a: 255 }, // light grey
-                        PixelColorVal::Two => Color { r: 80, g: 80, b: 80, a: 255 }, // dark grey
-                        PixelColorVal::Three => Color::WHITE,
-                    };
-
-                    // Calcule les coordonnées pour dessiner le pixel
-                    let x = (tile_index % 20) * 8 + pixel_index;
-                    let y = (tile_index / 20) * 8 + row_index;
-
-                    //Dessine le pixel sur le canvas
-                    canvas.set_draw_color(pixel_color);
-                    canvas
-                        .fill_rect(Rect::new(
-                            (x as i32) * SCALE_FACTOR as i32,
-                            (y as i32) * SCALE_FACTOR as i32,
-                            SCALE_FACTOR as u32,
-                            SCALE_FACTOR as u32,
-                        ))
-                        .expect("Failed to draw pixel.");
-                }
-            }
-        }
-    }
-
+   
     pub fn load_game(&mut self, game_file: &mut File ){
         let mut header = [0; 0x150];
 		let _ = game_file.read(&mut header).unwrap();
