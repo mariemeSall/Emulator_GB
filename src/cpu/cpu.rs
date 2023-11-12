@@ -13,7 +13,6 @@ pub struct CPU {
     pub ime: bool,
     pub ime_set:bool,
     pub ime_rest: bool,
-    temp:bool,
 }
 
 
@@ -676,7 +675,6 @@ impl CPU {
             resgiters : Resgisters::new(),
             sp: 0xFFFE,
             pc:  0x0000,
-            temp:false,
         }
     }
 
