@@ -25,23 +25,7 @@ fn open_window()-> Window{
         .unwrap()
 }
 
-pub fn handle_input(events: &mut EventPump, gameboy: &mut GameBoy) {
-    for event in events.poll_iter() {
-        match event {
-            Event::Quit{..} => {
-                    gameboy.done = true;
-                    gameboy.cpu.is_halted = true;
-            },
-            Event::KeyDown {
-                keycode: Some(Keycode::Space),
-                ..
-            } => {
-                gameboy.cpu.is_halted = !gameboy.is_halted(); // Ferme la fenêtre
-            }
-            _ => ()
-        }
-    }
-} 
+
 
 fn main() {
     let rom_path = "rom/Tetris.gb";
@@ -54,7 +38,7 @@ fn main() {
         Ok(mut file) => {
             //Utilise la fonction read_to_end pour lire le contenu complet du fichier dans un vecteur de bytes
            
-                    //Initialise le MemoryBus
+                //Initialise le MemoryBus
                 gameboy.load_game(&mut file);
                 gameboy.load_bios();
                 let sdl_context = sdl2::init().unwrap();
@@ -70,7 +54,8 @@ fn main() {
 
 
                 while !gameboy.done{
-                    handle_input(&mut event_pump, &mut gameboy);
+                    
+                    gameboy.update_key_state(&mut event_pump);
 
                     while !gameboy.is_halted()&&cycles_this_frame < CYCLES_PER_FRAME*gameboy.get_speed(){
                         //handle_input(&mut event_pump, &mut gameboy);
@@ -82,29 +67,6 @@ fn main() {
                     cycles_this_frame =0;
                   //  gameboy.done=true;
                 }
-               /* while gameboy.memory_bus.bios_run {
-                    gameboy.step()
-                }*/
-               
-                //gameboy.run();
-
-              
-            
-            /*let mut display_count = 0;  //Compteur pour suivre le nombre d'octets affichés
-            for byte in rom_data.iter() {  //Parcours chaque octet dans le vecteur rom_data
-                print!("{:02X} ", byte);  //Affiche l'octet en format hexadécimal (2 caractères, préfixés par 0 si nécessaire)
-                display_count += 1;  //Incrémente le compteur d'octets affichés
-
-                if display_count % 16 == 0 {
-                    //Si 16 octets sont affichés on passe à la ligne suivante
-                    println!();
-                }
-
-                if display_count >= 256 {
-                    // Si nous avons affiché 256 octets arrête la boucle
-                    break;
-                }
-            }*/
 
         }
         Err(e) => {

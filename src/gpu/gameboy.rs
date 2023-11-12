@@ -2,6 +2,7 @@ extern crate sdl2;
 use crate::cpu::cpu::CPU;
 use crate::gpu::gpu::VRAM_START;
 use crate::memory::memory::MemoryBus;
+use super::inputs::{Keypad, JoypadKey};
 
 use super::gpu::{GPU, PixelColorVal, SCROLLY, LINE};
 
@@ -25,6 +26,7 @@ pub struct GameBoy {
     pub memory_bus: MemoryBus,
     pub screen_is_open: bool,
     pub done: bool,
+    pub keypad: Keypad,
 }
 
 impl GameBoy {
@@ -35,6 +37,7 @@ impl GameBoy {
             memory_bus: MemoryBus::new(),
             screen_is_open: false,
             done: false,
+            keypad: Keypad::new(),
         }
        
     }
@@ -66,51 +69,61 @@ impl GameBoy {
 		1 << (self.memory_bus.read_byte(0xFF4D) >> 7)
 	}
 
-    pub fn run(&mut self) {
-        let sdl_context = sdl2::init().unwrap();
-        let video_subsystem = sdl_context.video().unwrap();
-        let window = video_subsystem
-            .window("Game Boy Emulator", SCREEN_WIDTH * SCALE_FACTOR, SCREEN_HEIGHT * SCALE_FACTOR)
-            .position_centered()
-            .build()
-            .unwrap();
-        let mut canvas = window.into_canvas().build().unwrap();
-        let mut event_pump = sdl_context.event_pump().unwrap();
-        self.screen_is_open = true;
-        
-        'running: loop {
-            for event in event_pump.poll_iter() {
-                match event {
-                    Event::Quit { .. } => {
-                        self.screen_is_open = false; // Ferme la fenêtre
-                        break 'running;
+    pub fn update_key_state(&mut self, event_pump: &mut sdl2::EventPump) {
+        // Efface l'état actuel des touches
+        self.keypad.p14 |= 0x0F;
+        self.keypad.p15 |= 0x0F;
+    
+        // Met à jour l'état des touches en fonction des entrées utilisateur
+        for event in event_pump.poll_iter() {
+            match event {
+                Event::KeyDown { keycode, repeat, .. } => {
+                    if !repeat {
+                        if let Some(keycode) = keycode {
+                            match keycode {
+                                Keycode::Right => self.keypad.key_down(JoypadKey::Right),
+                                Keycode::Left => self.keypad.key_down(JoypadKey::Left),
+                                Keycode::Up => self.keypad.key_down(JoypadKey::Up),
+                                Keycode::Down => self.keypad.key_down(JoypadKey::Down),
+                                Keycode::A => self.keypad.key_down(JoypadKey::A),
+                                Keycode::B => self.keypad.key_down(JoypadKey::B),
+                                Keycode::S => self.keypad.key_down(JoypadKey::Select),
+                                Keycode::X => self.keypad.key_down(JoypadKey::Start),
+                                Keycode::Space => {
+                                    self.cpu.is_halted = !self.cpu.is_halted;
+                                }
+                                _ => {}
+                            }
+                        }
                     }
-                    Event::KeyDown {
-                        keycode: Some(Keycode::Escape),
-                        ..
-                    } => {
-                        self.screen_is_open = false; // Ferme la fenêtre
-                        break 'running;
-                    }
-                    _ => {}
                 }
+                Event::KeyUp { keycode, .. } => {
+                    if let Some(keycode) = keycode {
+                        match keycode {
+                            Keycode::Right => self.keypad.key_up(JoypadKey::Right),
+                            Keycode::Left => self.keypad.key_up(JoypadKey::Left),
+                            Keycode::Up => self.keypad.key_up(JoypadKey::Up),
+                            Keycode::Down => self.keypad.key_up(JoypadKey::Down),
+                            Keycode::A => self.keypad.key_up(JoypadKey::A),
+                            Keycode::B => self.keypad.key_up(JoypadKey::B),
+                            Keycode::S => self.keypad.key_up(JoypadKey::Select),
+                            Keycode::Space => self.keypad.key_up(JoypadKey::Start),
+                            _ => {}
+                        }
+                    }
+                }
+                Event::Quit { .. } => {
+                    self.screen_is_open = false;
+                    self.done = true;
+                    self.cpu.is_halted = true;
+                },
+                _ => {}
             }
-
-            if !(self.screen_is_open) {
-                break 'running; //Sort de la boucle si la fenêtre est fermée
-            }
-            
-
-            self.step();
-
-            // Met à jour l'affichage sur l'écran SDL2
-            self.draw_screen(&mut canvas);
-            canvas.present();
-
-           std::thread::sleep(Duration::new(0, 1_000_000_000 / 60));
         }
+    
+        // Met à jour le registre JOYPAD avec l'état des touches
+        self.memory_bus.write_byte(0xFF00, self.keypad.read_interrupt());
     }
-
 
     pub fn draw_screen(&mut self, canvas: &mut Canvas<Window>){
         let screen = self.gpu.screen;
