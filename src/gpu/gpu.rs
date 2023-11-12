@@ -45,7 +45,8 @@ impl PixelColorVal {
         }
 
 
-    }
+    } 
+    
 }
 
 //tableau de 8x8 pour une tuile
@@ -192,24 +193,24 @@ impl GPU {
         let using_window = self.lcdc.window_display_enable && window_y<=line;
         let background = if using_window {window_map_range} else {background_map_range};
 
+        
         if !using_window && !self.lcdc.bg_display_enable {
             self.bg_prio_zero(line as usize);
             return;
         }
-
         let y_offset = if using_window { line - window_y} else { scroll_y.wrapping_add(line)};
-
+        
         let tile_row = y_offset/8;
-
+        
         for x in 0..160u8 {
             let mut x_offset = x.wrapping_add(scroll_x);
 			if using_window && x >= window_x {
-				x_offset = x - window_x;
+                x_offset = x - window_x;
 			}
-
+            
             
             let tile_col = x_offset/8;
-
+            
             let address = background + (tile_row as u16)*32 + (tile_col as u16);
            
             let tile = if self.lcdc.bg_display_enable {
@@ -220,7 +221,7 @@ impl GPU {
             let tile_line = (y_offset%8 )as u16;
 
             let address = (tile + tile_line*2) as usize;
-            //println!("ADDRESS BG {:02X}", address);
+            
             let lsb = memory.read_byte(address);
             let msb = memory.read_byte(address+1);
 

@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use crate::memory::{memory::MemoryBus, self};
 
 use super::register::Resgisters;
@@ -218,7 +220,7 @@ impl Instructions {
             0x43 => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::B, LoadByteSource::E))),
             0x44 => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::B, LoadByteSource::H))),
             0x45 => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::B, LoadByteSource::L))),
-            0x46 => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::B,LoadByteSource::HLI))),
+            0x46 => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::B,LoadByteSource::HL))),
             0x47 => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::B, LoadByteSource::A))),
             0x48 => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::C, LoadByteSource::B))),
             0x49 => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::C, LoadByteSource::C))),
@@ -226,7 +228,7 @@ impl Instructions {
             0x4B => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::C, LoadByteSource::E))),
             0x4C => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::C, LoadByteSource::H))),
             0x4D => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::C, LoadByteSource::L))),
-            0x4E => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::C, LoadByteSource::HLI))),
+            0x4E => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::C, LoadByteSource::HL))),
             0x4F => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::C, LoadByteSource::A))),
             0x50 => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::D, LoadByteSource::B))),
             0x51 => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::D, LoadByteSource::C))),
@@ -234,7 +236,7 @@ impl Instructions {
             0x53 => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::D, LoadByteSource::E))),
             0x54 => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::D, LoadByteSource::H))),
             0x55 => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::D, LoadByteSource::L))),
-            0x56 => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::D, LoadByteSource::HLI))),
+            0x56 => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::D, LoadByteSource::HL))),
             0x57 => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::D, LoadByteSource::A))),
             0x58 => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::E, LoadByteSource::B))),
             0x59 => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::E, LoadByteSource::C))),
@@ -242,7 +244,7 @@ impl Instructions {
             0x5B => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::E, LoadByteSource::E))),
             0x5C => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::E, LoadByteSource::H))),
             0x5D => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::E, LoadByteSource::L))),
-            0x5E => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::E, LoadByteSource::HLI))),
+            0x5E => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::E, LoadByteSource::HL))),
             0x5F => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::E, LoadByteSource::A))),
             0x60 => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::H, LoadByteSource::B))),
             0x61 => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::H, LoadByteSource::C))),
@@ -250,7 +252,7 @@ impl Instructions {
             0x63 => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::H,LoadByteSource::E))),
             0x64 => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::H, LoadByteSource::H))),
             0x65 => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::H, LoadByteSource::L))),
-            0x66 => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::H, LoadByteSource::HLI))),
+            0x66 => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::H, LoadByteSource::HL))),
             0x67 => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::H, LoadByteSource::A))),
             0x68 => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::L, LoadByteSource::B))),
             0x69 => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::L, LoadByteSource::C))),
@@ -258,23 +260,23 @@ impl Instructions {
             0x6B => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::L, LoadByteSource::E))),
             0x6C => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::L, LoadByteSource::H))),
             0x6D => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::L, LoadByteSource::L))),
-            0x6E => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::L, LoadByteSource::HLI))),
+            0x6E => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::L, LoadByteSource::HL))),
             0x6F => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::L, LoadByteSource::A))),
-            0x70 => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::HLI, LoadByteSource::B))),
-            0x71 => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::HLI, LoadByteSource::C))),
-            0x72 => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::HLI, LoadByteSource::D))),
-            0x73 => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::HLI, LoadByteSource::E))),
-            0x74 => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::HLI, LoadByteSource::H))),
-            0x75 => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::HLI, LoadByteSource::L))),
+            0x70 => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::HL, LoadByteSource::B))),
+            0x71 => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::HL, LoadByteSource::C))),
+            0x72 => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::HL, LoadByteSource::D))),
+            0x73 => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::HL, LoadByteSource::E))),
+            0x74 => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::HL, LoadByteSource::H))),
+            0x75 => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::HL, LoadByteSource::L))),
             0x76 => Some(Instructions::HALT()),
-            0x77 => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::HLI, LoadByteSource::A))),
+            0x77 => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::HL, LoadByteSource::A))),
             0x78 => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::A, LoadByteSource::B))),
             0x79 => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::A, LoadByteSource::C))),
             0x7A => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::A, LoadByteSource::D))),
             0x7B => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::A, LoadByteSource::E))),
             0x7C => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::A, LoadByteSource::H))),
             0x7D => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::A, LoadByteSource::L))),
-            0x7E => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::A, LoadByteSource::HLI))),
+            0x7E => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::A, LoadByteSource::HL))),
             0x7F => Some(Instructions::LD(LoadType::Byte(LoadByteTarget::A, LoadByteSource::A))),
             0x80 => Some(Instructions::ADD(TargetType::A(Target8::B))),
             0x81 => Some(Instructions::ADD(TargetType::A(Target8::C))),
@@ -752,7 +754,6 @@ impl CPU {
                                     self.resgiters.f.carry = overflow;
                                     let (_, overflow8) = ((self.resgiters.get_hl() & 0xFF) as u8).overflowing_add_signed(n);
                                     self.resgiters.f.half_carry= overflow8;
-                            
                                     self.resgiters.set_hl(new);
 
                                 },
@@ -1020,7 +1021,7 @@ impl CPU {
                             match t16 {
                                 Target16::BC => self.resgiters.set_bc(self.resgiters.get_bc() + 1) ,
                                 Target16::DE => self.resgiters.set_de(self.resgiters.get_de() + 1),
-                                Target16::HL => self.resgiters.set_hl(self.resgiters.get_hl() + 1),
+                                Target16::HL => {self.resgiters.set_hl(self.resgiters.get_hl() + 1);},
                                 Target16::SP => self.sp +=1,
                                 _=> panic!("INC target 16")
                             }
@@ -1212,13 +1213,11 @@ impl CPU {
                         Condition::No(a16) => {
                             match a16 {
                                 JumpValue::A16 => (self.jump(true, memory),16) ,
-                                JumpValue::Hl => (self.resgiters.get_hl(),4),
+                                JumpValue::Hl =>{(self.resgiters.get_hl(),4)},
                             }
                         },
 
-                    }
-
-                    
+                    }   
                 },
                 Instructions::JR(jmp)=> {
                     match jmp {
@@ -1254,25 +1253,27 @@ impl CPU {
                                 LoadByteSource::DE => memory.read_byte(self.resgiters.get_de() as usize),
                                 LoadByteSource::HLI =>  {
                                     let hl = self.resgiters.get_hl();
-                                   self.resgiters.set_hl(hl.overflowing_add(1).0);
-                                   memory.read_byte(hl as usize)
+                                    self.resgiters.set_hl(hl.overflowing_add(1).0);
+                                    memory.read_byte(hl as usize)
                                 },
                                 LoadByteSource::HLD =>  {
                                     let hl = self.resgiters.get_hl();
+                                    
                                    self.resgiters.set_hl(hl.overflowing_sub(1).0);
                                    memory.read_byte(hl as usize)
                                 },
                             };
-
+                            
                             match target {
-                                LoadByteTarget::A => self.resgiters.a = source_value,
+                                LoadByteTarget::A => {self.resgiters.a = source_value; 
+                                },
                                 LoadByteTarget::B => self.resgiters.b = source_value,
                                 LoadByteTarget::C => self.resgiters.c = source_value,
-                                LoadByteTarget::D => self.resgiters.d = source_value,
-                                LoadByteTarget::E => self.resgiters.e = source_value,
+                                LoadByteTarget::D => {self.resgiters.d = source_value},
+                                LoadByteTarget::E => {self.resgiters.e = source_value},
                                 LoadByteTarget::H => self.resgiters.h = source_value,
                                 LoadByteTarget::L => self.resgiters.l = source_value,
-                                LoadByteTarget::HL => memory.write_byte(self.resgiters.get_hl() as usize, source_value),
+                                LoadByteTarget::HL => {memory.write_byte(self.resgiters.get_hl() as usize, source_value)},
                                 LoadByteTarget::HLI =>  {
                                     let hl = self.resgiters.get_hl();
                                     memory.write_byte(hl as usize, source_value);
@@ -1282,8 +1283,8 @@ impl CPU {
                                     memory.write_byte(hl as usize, source_value);
                                     self.resgiters.set_hl(hl.overflowing_sub(1).0);
                                 },
-                                LoadByteTarget::BC => memory.write_byte(self.resgiters.get_bc() as usize, source_value),
-                                LoadByteTarget::DE => memory.write_byte(self.resgiters.get_de() as usize, source_value),
+                                LoadByteTarget::BC => {memory.write_byte(self.resgiters.get_bc() as usize, source_value)},
+                                LoadByteTarget::DE => {memory.write_byte(self.resgiters.get_de() as usize, source_value)},
                             };
 
                            let pc =  match source {
@@ -1362,9 +1363,12 @@ impl CPU {
                             };
 
                             match target {
-                                LoadATarget::A => self.resgiters.a = source_value,
+                                LoadATarget::A => {
+                                    self.resgiters.a = source_value
+                                },
                                 LoadATarget::C => memory.write_byte(((self.resgiters.c as u16) | 0xFF00) as usize, source_value),
                                 LoadATarget::A8 => {
+                                    let n = memory.read_byte((self.pc +1)as usize);
                                     let address = ((memory.read_byte((self.pc +1)as usize) as u16)|0xFF00) as usize; 
                                     self.pc = self.pc.wrapping_add(1);
                                     memory.write_byte(address, source_value)},
@@ -1372,12 +1376,11 @@ impl CPU {
                                     let lower = memory.read_byte((self.pc + 1) as usize);
                                     let higher = memory.read_byte((self.pc + 2) as usize);
                                     self.pc = self.pc.wrapping_add(2);
-
                                     memory.write_byte((((higher as u16)<<8)|(lower as u16))as usize, source_value)
 
                                 },
                             };
-
+                            
                             let pc = match source {
                                 LoadASource::A16 => self.pc.wrapping_add(3),
                                 LoadASource::A8 => self.pc.wrapping_add(2),
@@ -1401,7 +1404,7 @@ impl CPU {
                             (pc, cycle)
                         }
                     }
-                }
+                },
                 Instructions::PUSH(target) => {
                     let value = match target {
                         StackTarget::BC => self.resgiters.get_bc(),
@@ -1528,14 +1531,16 @@ impl CPU {
                         RestartValue::H30 => 0x0030,
                         RestartValue::H38 => 0x0038,
                     };
-                    self.push(self.pc, memory);
+                  
+                    self.push(self.pc.wrapping_add(1), memory);
+                
                     (hex, 16)
                 },
                 Instructions::STOP() => {
                     self.ime = false;
                     self.is_halted = true;
                     self.is_stopped = true;
-                    (self.pc.wrapping_add(1), 4)
+                    (self.pc.wrapping_add(2), 4)
                 },
                 //Instructions avec prefixe
                 Instructions::RLC(target) => {
@@ -1829,6 +1834,7 @@ impl CPU {
                         Target8::HL => {
                             let value = memory.read_byte(self.resgiters.get_hl() as usize);
                             let n = value & 0x01;
+
                             memory.write_byte(self.resgiters.get_hl() as usize, value >>1 | ((if self.resgiters.f.carry {1} else {0}) as u8)<<7);
                             self.resgiters.f.zero = memory.read_byte(self.resgiters.get_hl() as usize) ==0;
                             self.resgiters.f.carry = if n ==0 {false} else {true};
@@ -2168,10 +2174,21 @@ impl CPU {
     }
 
     pub fn step(&mut self, memory : &mut MemoryBus)-> u64{
+      
         //On récupère l'instruction à faire depuis le bus.
         let mut instruction_byte = memory.read_byte(self.pc as usize );
-        println!("pc : instruction {:02x}", instruction_byte);
+        
+       /*
+       
+       if self.pc >=0x2cd && self.pc<0x2ed {
+           println!("pc : {:02x} instruction {:02x}",self.pc, instruction_byte);
+           
+        }
+        */ 
 
+        
+      
+        
 
         //On vérifie si l'instruction est un préfixe.
         let prefixed = instruction_byte== 0xCB;
@@ -2189,6 +2206,7 @@ impl CPU {
             panic!("Pas d'instuction trouvée depuis l'adresse 0x{:02X}", instruction_byte);
         };
 
+       
         //On change le pointeur pour l'execution suivante.
         self.pc = next_pc;
         cycles
@@ -2343,7 +2361,7 @@ impl CPU {
 
         let (sp_1,_) = self.sp.overflowing_sub(1) ;
         let (sp_2, _) = self.sp.overflowing_sub(2);
-
+      
         memory.write_byte(sp_1 as usize , higher);
         memory.write_byte( sp_2 as usize, lower);
         self.sp = self.sp.wrapping_sub(2);
@@ -2354,7 +2372,7 @@ impl CPU {
         let lower = memory.read_byte((self.sp) as usize);
         self.sp = self.sp.wrapping_add(2);
 
-        (higher as u16) <<8 | lower as u16 
+        ((higher as u16) <<8) | (lower as u16 )
     }
 
     pub fn call(&mut self, jump: bool, memory : &mut MemoryBus) -> u16{

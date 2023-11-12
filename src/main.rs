@@ -41,7 +41,7 @@ pub fn handle_input(events: &mut EventPump, gameboy: &mut GameBoy) {
             _ => ()
         }
     }
-}
+} 
 
 fn main() {
     let rom_path = "rom/Tetris.gb";
@@ -73,6 +73,7 @@ fn main() {
                     handle_input(&mut event_pump, &mut gameboy);
 
                     while !gameboy.is_halted()&&cycles_this_frame < CYCLES_PER_FRAME*gameboy.get_speed(){
+                        //handle_input(&mut event_pump, &mut gameboy);
                         cycles_this_frame += gameboy.step();                       
                     }
 
