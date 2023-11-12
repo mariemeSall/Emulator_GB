@@ -1,6 +1,4 @@
-use std::time::Duration;
-
-use crate::memory::{memory::MemoryBus, self};
+use crate::memory::memory::MemoryBus;
 
 use super::register::Resgisters;
 const IE :usize = 0xFFFF;
@@ -12,6 +10,7 @@ pub struct CPU {
     pub is_halted: bool,
     pub is_stopped: bool,
     pub ime: bool,
+    pub joypad_interrupt: u8,
 }
 
 
@@ -672,6 +671,7 @@ impl CPU {
             resgiters : Resgisters::new(),
             sp: 0xFFFE,
             pc:  0x0000,
+            joypad_interrupt: 0,
         }
     }
 
@@ -2177,6 +2177,7 @@ impl CPU {
     pub fn interup_step(&mut self, memory : &mut MemoryBus)-> bool{
         let mut interupt = false;
         if self.ime {
+            let joy = self.joypad_interrupt;
             for i in 0..5 {
                 if memory.read_byte(IE)&memory.read_byte(IF)& (1<<i)>0{
                     self.ime = false;
@@ -2186,6 +2187,8 @@ impl CPU {
                     self.push(self.pc, memory);
                     self.pc = 0x40 + 0x08*i;
                     interupt = true;
+
+                    memory.write_byte(IF, joy & !(1 << i));
                 }
             }
         }

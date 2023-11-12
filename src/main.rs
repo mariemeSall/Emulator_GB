@@ -3,10 +3,9 @@ pub mod cpu;
 pub mod gpu;
 pub mod memory;
 use gpu::gameboy::*;
-use sdl2::{video::Window, EventPump, event::Event, keyboard::Keycode};
 
-use crate::gpu::{gameboy::GameBoy, gpu::LINE};
-use std::{fs::File, time::Duration};
+use crate::gpu::gameboy::GameBoy;
+use std::fs::File;
 extern crate fps_clock;
 
 
@@ -55,6 +54,10 @@ fn main() {
                         //handle_input(&mut event_pump, &mut gameboy);
                         cycles_this_frame += gameboy.step();                       
                     }
+
+                    //Gére les interruptions du joypad
+                    let joypad_interrupt = gameboy.keypad.read_interrupt();
+                    gameboy.cpu.joypad_interrupt = joypad_interrupt;
 
                     if render_frame==0 {
                         gameboy.display_screen(&mut canvas);
