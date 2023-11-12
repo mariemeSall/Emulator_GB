@@ -2,7 +2,7 @@ pub const VRAM_START: usize = 0x8000;   //première adresse consacrée aux tuile
 pub const VRAM_END: usize = 0x9FFF;     //dernière adresse consacrée aux tuiles
 pub const VRAM_SIZE: usize = VRAM_END - VRAM_START + 1;     //taille utilisée par les données des tuiles
 pub const LCDC:usize = 0xFF40;
-pub const LCDSTAT: u16 = 0xFF41; 
+pub const LCDSTAT: usize = 0xFF41; 
 pub const SCROLLX: usize = 0xFF43;
 pub const SCROLLY: usize = 0xFF42;
 pub const LINE: usize = 0xFF44; //adresse de la ligne à dessiner
@@ -17,7 +17,11 @@ pub const OBP1: usize = 0xFF49;
 pub const IFLAG: u16 = 0xFF0F;
 
 pub const IENABLE: u16 = 0xFFFF;
+const SCANLINE_TOTAL_TIME: i16 = 456;
+const SCANLINE_MODE2_OVER: i16 = 456-80;
+const SCANLINE_MODE3_OVER: i16 = 456-80-172;
 
+use crate::cpu::cpu::CPU;
 use crate::gpu::gameboy::SCALE_FACTOR;
 use crate::memory::memory::MemoryBus;
 
@@ -65,6 +69,7 @@ pub struct GPU{
     pub screen: [[PixelColorVal; 160];144],
     pub bg: [[u8;160];144],
     pub lcdc: LCDC,
+    pub sl : i16,
 }
 
 impl GPU {
@@ -74,28 +79,85 @@ impl GPU {
             screen: [[PixelColorVal::Zero;160];144],
             bg: [[0; 160]; 144],
             lcdc: LCDC::new(),
+            sl:0,
         }
     }
 
-    pub fn step(&mut self, memory : &mut MemoryBus ){
-        //Passe à la ligne suivante en wrappant la valeur
-        let line = (memory.read_byte(LINE) + 1)%154;
-        memory.write_byte(LINE, line);
-        //update le lcdc 
+    pub fn step(&mut self, memory : &mut MemoryBus, cpu: &mut CPU, cycles: i16 ){
+        self.lcd_status(memory, cpu);
         self.lcdc.write(memory.read_byte(LCDC));
+        if self.lcdc.display_enable {
+            self.sl -=cycles;
+            if self.sl<=0 {
 
-       // println!("LCDC : {:02X}", memory.read_byte(LCDC));
-        //Si la ligne est incluse dans l'affichage (<144), on la dessine
-        if line<144 {
-            
-            self.draw_tiles(memory);
-            //Si le lcdc autorise les objets, on dessine les objets
-            if self.lcdc.sprite_display_enable {
-               // println!("object");
-                self.draw_objects(memory);
+            }
+
+            //Passe à la ligne suivante en wrappant la valeur
+            let line = (memory.read_byte(LINE) + 1)%154;
+            memory.write_byte(LINE, line);
+            //update le lcdc 
+            self.sl = SCANLINE_TOTAL_TIME;
+            //Si la ligne est incluse dans l'affichage (<144), on la dessine
+            if line ==144 {
+                cpu.request(memory, 0);
+
+            }else if line<144 {
+                
+                self.draw_tiles(memory);
+                //Si le lcdc autorise les objets, on dessine les objets
+                if self.lcdc.sprite_display_enable {
+                   // println!("object");
+                    self.draw_objects(memory);
+                }
             }
         }
+
     }
+
+    fn lcd_status(&mut self, memory : &mut MemoryBus, cpu: &mut CPU){
+        let mut stat = memory.read_byte(LCDSTAT);
+        let line = memory.read_byte(LINE);
+        let mode = stat&3;
+
+        let mut req = false;
+        self.lcdc.write(memory.read_byte(LCDC));
+        if !self.lcdc.display_enable {
+            self.sl = SCANLINE_TOTAL_TIME;
+            memory.write_byte(LINE,0);
+            stat = (stat & 0xFC) | 0;
+        } else if line >144 {
+            stat = (stat & 0xFC) | 1;
+            req = (stat&(1<<4))>0;
+        } else if self.sl>= SCANLINE_MODE2_OVER {
+            stat = (stat & 0xFC)|2;
+            req = (stat&(1<<5))>0;
+
+        } else if self.sl >= SCANLINE_MODE3_OVER {
+            stat = (stat &0xFC) |3;
+        } else {
+            stat = stat & 0xFC;
+            req = (stat & (1<<3))>0;
+        }
+
+        if req &&(mode != (stat &3)){
+            cpu.request(memory, 1)
+        }
+        self.lcdc.write(memory.read_byte(LCDC));
+        if line ==memory.read_byte(0xFF45)&& self.lcdc.display_enable {
+            stat = (stat & 0xFB) | 4 ;
+            if ( stat & (1>>6))>0 {
+                cpu.request(memory, 1);
+            } else {
+                stat &= 0xFB;
+            }
+        }
+
+        memory.write_byte(LCDSTAT, stat);
+
+
+    }
+
+    
 
     pub fn generate_tile_set(&mut self, memory : &mut MemoryBus) {
 

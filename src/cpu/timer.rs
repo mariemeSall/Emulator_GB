@@ -1,6 +1,10 @@
+use crate::memory::memory::MemoryBus;
+
+use super::cpu::CPU;
+
 pub struct Timer {
-    div: u8,        //Registre DIV (Divider Register)
-    tima: u8,       //Registre TIMA (Timer Counter)
+    div: i16,        //Registre DIV (Divider Register)
+    tima: i16,       //Registre TIMA (Timer Counter)
     tma: u8,        //Registre TMA (Timer Modulo)
     tac: u8,        //Registre TAC (Timer Control)
     last_cycle: u64, //Dernier cycle traité
@@ -19,8 +23,8 @@ impl Timer {
 
     pub fn read_byte(&self, address: u16) -> u8 {
         match address {
-            0xFF04 => self.div,
-            0xFF05 => self.tima,
+            0xFF04 => self.div as u8,
+            0xFF05 => self.tima as u8,
             0xFF06 => self.tma,
             0xFF07 => self.tac,
             _ => 0,
@@ -30,7 +34,7 @@ impl Timer {
     pub fn write_byte(&mut self, address: u16, value: u8) {
         match address {
             0xFF04 => self.div = 0, //Écrire n'importe quelle valeur réinitialise DIV
-            0xFF05 => self.tima = value,
+            0xFF05 => self.tima = value as i16,
             0xFF06 => self.tma = value,
             0xFF07 => self.tac = value,
             _ => {}
@@ -48,13 +52,49 @@ impl Timer {
                 self.tima = self.tima.wrapping_add(1);
 
                 if self.tima == 0 {
-                    self.tima = self.tma;
+                    self.tima = self.tma as i16;
                 }
             }
         }
 
         //Met à jour le registre DIV en fonction des cycles écoulés
-        self.div = self.div.wrapping_add((delta_cycles / 256) as u8);
+        self.div = self.div.wrapping_add((delta_cycles / 256) as i16);
+    }
+
+    pub fn step(&mut self, cycles: i16, memory: &mut MemoryBus, cpu: &mut CPU){
+        self.div -= cycles;
+
+        if self.div<=0 {
+            self.div = 255;
+            let div = memory.read_byte(0xFF04);
+            memory.write_byte(0xFF04, div.wrapping_add(1));
+        }
+
+        let tac = memory.read_byte(0xFF07);
+
+        if tac &4 >0 {
+            self.tima -= cycles;
+        }
+
+        if self.tima <=0 {
+            self.tima = match tac & 0x3 {
+				0 => (41494304/4096) as i16,
+				1 => (41494304/262144) as i16,
+				2 => (41494304/65536) as i16,
+				3 => (41494304/16384) as i16,
+				_ => panic!("Invalid lower 2 bits for TAC")
+			};
+
+            let tima= memory.read_byte(0xFF05);
+
+            if tima ==255 {
+                let tma = memory.read_byte(0xFF06);
+                memory.write_byte(0xFF06,tma);
+                cpu.request(memory, 2);
+            } else {
+                memory.write_byte(0xFF05, tima + 1)
+            }
+        }
     }
 
     fn is_timer_enabled(&self) -> bool {

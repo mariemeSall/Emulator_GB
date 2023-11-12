@@ -1,10 +1,10 @@
 extern crate sdl2;
 use crate::cpu::cpu::CPU;
-use crate::gpu::gpu::VRAM_START;
+use crate::cpu::timer::Timer;
 use crate::memory::memory::MemoryBus;
 use super::inputs::{Keypad, JoypadKey};
 
-use super::gpu::{GPU, PixelColorVal, SCROLLY, LINE};
+use super::gpu::{GPU, PixelColorVal};
 
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
@@ -14,7 +14,6 @@ use sdl2::render::Canvas;
 use sdl2::video::Window;
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
-use std::time::Duration;
 
 pub const SCREEN_WIDTH: u32 = 160;
 pub const SCREEN_HEIGHT: u32 = 144;
@@ -27,6 +26,7 @@ pub struct GameBoy {
     pub screen_is_open: bool,
     pub done: bool,
     pub keypad: Keypad,
+    pub timer : Timer,
 }
 
 impl GameBoy {
@@ -38,17 +38,22 @@ impl GameBoy {
             screen_is_open: false,
             done: false,
             keypad: Keypad::new(),
+            timer : Timer::new(),
         }
        
     }
     pub fn step(&mut self) -> u64{
-        let cycles = self.cpu.step(&mut self.memory_bus);
+        let cycles= self.cpu.step(&mut self.memory_bus);
         // Exécutez une étape de l'émulateur ici
         // Par exemple, vous pouvez mettre à jour le CPU, le GPU, la mémoire, etc
         if self.cpu.pc == 0x100 {
             self.memory_bus.bios_run=false;
         }
-        self.gpu.step(&mut self.memory_bus);
+        self.gpu.step(&mut self.memory_bus, &mut self.cpu, cycles as i16);
+        self.timer.step(cycles as i16,&mut self.memory_bus, &mut self.cpu);
+        if self.cpu.interup_step(&mut self.memory_bus){
+            self.cpu.is_halted = false;
+        }
         
         cycles
        
@@ -239,16 +244,7 @@ impl GameBoy {
 
     }
 
-    fn copyright(&mut self){
-        let mut address = 0x8100;
-        for i in 0xD8..0xE0 {
-            let value = self.memory_bus.read_byte(i);
-            self.memory_bus.write_byte(address, value);
-            self.memory_bus.write_byte(address+1, value);
-            address+=2;
-        }
-
-    }
+   
 
    
     pub fn load_bios(&mut self){
@@ -300,21 +296,7 @@ impl GameBoy {
         }       
     }
 
-    fn bios_step(&mut self){
-        let scroll_y = self.memory_bus.read_byte(SCROLLY);
-        self.gpu.step(&mut self.memory_bus);
-
-        if scroll_y ==0 {
-            self.memory_bus.bios_run = false;
-            return;
-        }
-
-        self.memory_bus.write_byte(SCROLLY, scroll_y-1);
-
-
-    }
-
-    
+   
 }
 
 fn to_null_terminated(bytes: &[u8]) -> String {

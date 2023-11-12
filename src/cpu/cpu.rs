@@ -3,7 +3,8 @@ use std::time::Duration;
 use crate::memory::{memory::MemoryBus, self};
 
 use super::register::Resgisters;
-
+const IE :usize = 0xFFFF;
+const IF :usize = 0xFF0F;
 pub struct CPU {
     pub resgiters: Resgisters,
     pub pc: u16,
@@ -2173,21 +2174,27 @@ impl CPU {
         }
     }
 
+    pub fn interup_step(&mut self, memory : &mut MemoryBus)-> bool{
+        let mut interupt = false;
+        if self.ime {
+            for i in 0..5 {
+                if memory.read_byte(IE)&memory.read_byte(IF)& (1<<i)>0{
+                    self.ime = false;
+                    let req = memory.read_byte(IF);
+                    memory.write_byte(IF, req & !(1 << i));
+
+                    self.push(self.pc, memory);
+                    self.pc = 0x40 + 0x08*i;
+                    interupt = true;
+                }
+            }
+        }
+        interupt
+    }
     pub fn step(&mut self, memory : &mut MemoryBus)-> u64{
       
         //On récupère l'instruction à faire depuis le bus.
-        let mut instruction_byte = memory.read_byte(self.pc as usize );
-        
-       /*
-       
-       if self.pc >=0x2cd && self.pc<0x2ed {
-           println!("pc : {:02x} instruction {:02x}",self.pc, instruction_byte);
-           
-        }
-        */ 
-
-        
-      
+        let mut instruction_byte = memory.read_byte(self.pc as usize );     
         
 
         //On vérifie si l'instruction est un préfixe.
@@ -2209,6 +2216,7 @@ impl CPU {
        
         //On change le pointeur pour l'execution suivante.
         self.pc = next_pc;
+
         cycles
     }  
 
@@ -2420,6 +2428,10 @@ impl CPU {
     }
     
    
+    pub fn request(&self, memory: &mut MemoryBus,id:u8){
+        let register = memory.read_byte(IF) | (1<<id);
+        memory.write_byte(IF,register);
+    }
 
 }
 
