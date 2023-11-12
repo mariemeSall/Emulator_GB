@@ -1,4 +1,4 @@
 # Emulator_GB
 
-# Run with :
-$cargo run
+- Run with :
+$ cargo run
