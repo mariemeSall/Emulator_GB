@@ -22,13 +22,7 @@ const SCANLINE_MODE2_OVER: i16 = 456-80;
 const SCANLINE_MODE3_OVER: i16 = 456-80-172;
 
 use crate::cpu::cpu::CPU;
-use crate::gpu::gameboy::SCALE_FACTOR;
 use crate::memory::memory::MemoryBus;
-
-use sdl2::render::Canvas;
-use sdl2::pixels::Color;
-use sdl2::video::Window;
-use sdl2::rect::Rect;
 
 #[derive(Copy, Clone, Debug)]
 pub enum PixelColorVal{
